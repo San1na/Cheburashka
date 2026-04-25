@@ -1,21 +1,6 @@
---[[
-    iOSMenu Library for Roblox
-    GitHub raw link placeholder (replace with your own):
-    https://raw.githubusercontent.com/USERNAME/REPOSITORY/BRANCH/main.lua
-]]
-
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
-
-local VISUAL_PROPS = {
-    "BackgroundTransparency",
-    "TextTransparency",
-    "TextStrokeTransparency",
-    "ImageTransparency",
-    "ScrollBarImageTransparency",
-    "Transparency",
-}
 
 local iOSMenu = {}
 iOSMenu.__index = iOSMenu
@@ -179,7 +164,6 @@ function iOSMenu.new(config)
     self.Visible = true
     self.CurrentTab = nil
     self.Connections = {}
-    self._visualBaseline = setmetatable({}, { __mode = "k" })
     self._isAnimatingVisibility = false
 
     local root = getParent(settings.Parent)
@@ -199,12 +183,18 @@ function iOSMenu.new(config)
     makeCorner(holder, settings.CornerRadius)
     makeStroke(holder, settings.BorderColor, 0.12)
 
+    local contentGroup = Instance.new("CanvasGroup")
+    contentGroup.Name = "ContentGroup"
+    contentGroup.BackgroundTransparency = 1
+    contentGroup.Size = UDim2.fromScale(1, 1)
+    contentGroup.Parent = holder
+
     local header = Instance.new("Frame")
     header.Name = "Header"
     header.BackgroundTransparency = 1
     header.Size = UDim2.new(1, -24, 0, 70)
     header.Position = UDim2.fromOffset(12, 8)
-    header.Parent = holder
+    header.Parent = contentGroup
 
     local title = makeLabel(header, settings.Name, settings.TitleTextSize, settings.TextColor, settings.Font, Enum.TextXAlignment.Left)
     title.Size = UDim2.new(1, -120, 0, 30)
@@ -233,7 +223,7 @@ function iOSMenu.new(config)
     tabsShell.Position = UDim2.fromOffset(12, 82)
     tabsShell.BackgroundColor3 = settings.SurfaceColor
     tabsShell.BackgroundTransparency = settings.SurfaceTransparency
-    tabsShell.Parent = holder
+    tabsShell.Parent = contentGroup
     makeCorner(tabsShell, 14)
     makeStroke(tabsShell, settings.BorderColor, 0.35)
 
@@ -264,7 +254,7 @@ function iOSMenu.new(config)
     pages.ClipsDescendants = true
     pages.Size = UDim2.new(1, -24, 1, -134)
     pages.Position = UDim2.fromOffset(12, 128)
-    pages.Parent = holder
+    pages.Parent = contentGroup
 
     self.Root = root
     self.Holder = holder
@@ -276,6 +266,7 @@ function iOSMenu.new(config)
     self.Indicator = indicator
     self.Pages = pages
     self.HolderScale = holderScale
+    self.ContentGroup = contentGroup
 
     local dragStart, startPos
     if settings.Draggable then
@@ -311,12 +302,13 @@ function iOSMenu.new(config)
         if UserInputService:GetFocusedTextBox() then
             return
         end
+        if self._capturingKeybind then
+            return
+        end
         if input.KeyCode == self.Settings.Keybind then
             self:Toggle()
         end
     end))
-
-    self:_cacheVisuals()
 
     holder.Size = UDim2.fromOffset(settings.Width * 0.94, settings.Height * 0.94)
     holder.BackgroundTransparency = 1
@@ -324,9 +316,10 @@ function iOSMenu.new(config)
         Size = UDim2.fromOffset(settings.Width, settings.Height),
         BackgroundTransparency = settings.BackgroundTransparency,
     }, Enum.EasingStyle.Back)
+    contentGroup.GroupTransparency = 1
     holderScale.Scale = 0.97
     tween(holderScale, settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back)
-    self:_tweenVisuals(0, settings.AnimationSpeed)
+    tween(contentGroup, settings.AnimationSpeed, { GroupTransparency = 0 }, Enum.EasingStyle.Quint)
 
     return self
 end
@@ -338,9 +331,8 @@ function iOSMenu:SetVisible(state)
     self._isAnimatingVisibility = true
     self.Visible = state
     if state then
-        self:_cacheVisuals()
         self.Holder.Visible = true
-        self:_tweenVisuals(1, 0.01)
+        self.ContentGroup.GroupTransparency = 1
         self.Holder.Size = UDim2.fromOffset(self.Settings.Width * 0.94, self.Settings.Height * 0.94)
         self.HolderScale.Scale = 0.97
         self.Holder.BackgroundTransparency = 1
@@ -349,19 +341,23 @@ function iOSMenu:SetVisible(state)
             BackgroundTransparency = self.Settings.BackgroundTransparency,
         }, Enum.EasingStyle.Back)
         tween(self.HolderScale, self.Settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back)
-        self:_tweenVisuals(0, self.Settings.AnimationSpeed)
+        tween(self.ContentGroup, self.Settings.AnimationSpeed, { GroupTransparency = 0 }, Enum.EasingStyle.Quint)
         task.delay(self.Settings.AnimationSpeed, function()
             self._isAnimatingVisibility = false
         end)
     else
         local hideDuration = self.Settings.AnimationSpeed * 0.9
-        self:_cacheVisuals()
+        for _, node in ipairs(self.Holder:GetDescendants()) do
+            if node:IsA("Frame") and node.Name == "ColorPopup" then
+                node.Visible = false
+            end
+        end
         tween(self.Holder, hideDuration, {
             Size = UDim2.fromOffset(self.Settings.Width * 0.94, self.Settings.Height * 0.94),
             BackgroundTransparency = 1,
         }, Enum.EasingStyle.Quad)
         tween(self.HolderScale, hideDuration, { Scale = 0.97 }, Enum.EasingStyle.Quad)
-        self:_tweenVisuals(1, hideDuration)
+        tween(self.ContentGroup, hideDuration, { GroupTransparency = 1 }, Enum.EasingStyle.Quint)
         task.delay(hideDuration, function()
             if self.Holder then
                 self.Holder.Visible = false
@@ -386,45 +382,6 @@ function iOSMenu:SetKeybind(keyCode)
     end
     self.Settings.Keybind = keyCode
     return true
-end
-
-function iOSMenu:_cacheVisuals()
-    local function cacheFor(instance)
-        if self._visualBaseline[instance] then
-            return
-        end
-        local values = {}
-        for _, prop in ipairs(VISUAL_PROPS) do
-            local ok, value = pcall(function()
-                return instance[prop]
-            end)
-            if ok and typeof(value) == "number" then
-                values[prop] = value
-            end
-        end
-        if next(values) then
-            self._visualBaseline[instance] = values
-        end
-    end
-
-    cacheFor(self.Holder)
-    for _, instance in ipairs(self.Holder:GetDescendants()) do
-        cacheFor(instance)
-    end
-end
-
-function iOSMenu:_tweenVisuals(alpha, duration)
-    for instance, baseProps in pairs(self._visualBaseline) do
-        if instance and instance.Parent then
-            local target = {}
-            for prop, baseValue in pairs(baseProps) do
-                target[prop] = baseValue + (1 - baseValue) * clamp01(alpha)
-            end
-            tween(instance, duration, target, Enum.EasingStyle.Quint)
-        else
-            self._visualBaseline[instance] = nil
-        end
-    end
 end
 
 function iOSMenu:_refreshTabs()
@@ -760,23 +717,21 @@ function iOSMenu:AddTab(tabSettings)
             local titleText = data.Text or "Color Picker"
             local currentColor = data.Default or style.AccentColor
             local h, s, v = Color3.toHSV(currentColor)
-            local expanded = false
+            local isOpen = false
             local dragMode = nil
 
-            local row = makeRow(data.Height or style.ItemHeight)
-            row.AutomaticSize = Enum.AutomaticSize.Y
-
-            local headerButton = makeButton(row)
-            headerButton.Size = UDim2.new(1, 0, 0, style.ItemHeight)
-            pressAnimation(headerButton)
+            local row = makeRow(data.Height)
+            local rowButton = makeButton(row)
+            rowButton.Size = UDim2.fromScale(1, 1)
+            pressAnimation(rowButton)
 
             local title = makeLabel(row, titleText, style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-            title.Size = UDim2.new(1, -120, 0, style.ItemHeight)
+            title.Size = UDim2.new(1, -140, 1, 0)
             title.Position = UDim2.fromOffset(12, 0)
 
             local hexLabel = makeLabel(row, colorToHex(currentColor), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
-            hexLabel.Size = UDim2.new(0, 70, 0, style.ItemHeight)
-            hexLabel.Position = UDim2.new(1, -98, 0, 0)
+            hexLabel.Size = UDim2.new(0, 78, 1, 0)
+            hexLabel.Position = UDim2.new(1, -106, 0, 0)
 
             local preview = Instance.new("Frame")
             preview.Size = UDim2.fromOffset(18, 18)
@@ -786,68 +741,72 @@ function iOSMenu:AddTab(tabSettings)
             makeCorner(preview, 999)
             makeStroke(preview, Color3.fromRGB(255, 255, 255), 0.35)
 
-            local panel = Instance.new("Frame")
-            panel.Size = UDim2.new(1, -12, 0, 0)
-            panel.Position = UDim2.fromOffset(6, style.ItemHeight)
-            panel.BackgroundColor3 = Color3.fromRGB(246, 246, 248)
-            panel.BackgroundTransparency = 1
-            panel.ClipsDescendants = true
-            panel.Parent = row
-            makeCorner(panel, 10)
-            makeStroke(panel, style.BorderColor, 0.45)
+            local popup = Instance.new("Frame")
+            popup.Name = "ColorPopup"
+            popup.Visible = false
+            popup.Size = UDim2.fromOffset(220, 166)
+            popup.BackgroundColor3 = Color3.fromRGB(246, 246, 248)
+            popup.BackgroundTransparency = 0.04
+            popup.ZIndex = 20
+            popup.Parent = menuRef.Holder
+            makeCorner(popup, 12)
+            makeStroke(popup, style.BorderColor, 0.35)
+
+            local popupScale = Instance.new("UIScale")
+            popupScale.Scale = 0.96
+            popupScale.Parent = popup
 
             local sv = Instance.new("Frame")
-            sv.Size = UDim2.new(1, -54, 0, 120)
+            sv.Size = UDim2.new(1, -54, 1, -16)
             sv.Position = UDim2.fromOffset(8, 8)
             sv.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
-            sv.Parent = panel
+            sv.ZIndex = 21
+            sv.Parent = popup
             makeCorner(sv, 8)
 
             local whiteLayer = Instance.new("Frame")
             whiteLayer.Size = UDim2.fromScale(1, 1)
             whiteLayer.BackgroundColor3 = Color3.new(1, 1, 1)
+            whiteLayer.ZIndex = 22
             whiteLayer.Parent = sv
             makeCorner(whiteLayer, 8)
 
             local whiteGradient = Instance.new("UIGradient")
-            whiteGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
-                ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1)),
-            })
             whiteGradient.Transparency = NumberSequence.new({
                 NumberSequenceKeypoint.new(0, 0),
                 NumberSequenceKeypoint.new(1, 1),
             })
-            whiteGradient.Rotation = 0
             whiteGradient.Parent = whiteLayer
 
             local blackLayer = Instance.new("Frame")
             blackLayer.Size = UDim2.fromScale(1, 1)
             blackLayer.BackgroundColor3 = Color3.new(0, 0, 0)
+            blackLayer.ZIndex = 23
             blackLayer.Parent = sv
             makeCorner(blackLayer, 8)
 
             local blackGradient = Instance.new("UIGradient")
-            blackGradient.Color = ColorSequence.new(Color3.new(0, 0, 0), Color3.new(0, 0, 0))
+            blackGradient.Rotation = 90
             blackGradient.Transparency = NumberSequence.new({
                 NumberSequenceKeypoint.new(0, 1),
                 NumberSequenceKeypoint.new(1, 0),
             })
-            blackGradient.Rotation = 90
             blackGradient.Parent = blackLayer
 
             local svCursor = Instance.new("Frame")
             svCursor.Size = UDim2.fromOffset(12, 12)
             svCursor.AnchorPoint = Vector2.new(0.5, 0.5)
             svCursor.BackgroundColor3 = Color3.new(1, 1, 1)
+            svCursor.ZIndex = 24
             svCursor.Parent = sv
             makeCorner(svCursor, 999)
             makeStroke(svCursor, Color3.fromRGB(15, 15, 15), 0.35)
 
             local hueBar = Instance.new("Frame")
-            hueBar.Size = UDim2.new(0, 18, 0, 120)
+            hueBar.Size = UDim2.new(0, 18, 1, -16)
             hueBar.Position = UDim2.new(1, -30, 0, 8)
-            hueBar.Parent = panel
+            hueBar.ZIndex = 21
+            hueBar.Parent = popup
             makeCorner(hueBar, 8)
 
             local hueGradient = Instance.new("UIGradient")
@@ -867,15 +826,18 @@ function iOSMenu:AddTab(tabSettings)
             hueCursor.Size = UDim2.new(1, 4, 0, 4)
             hueCursor.AnchorPoint = Vector2.new(0.5, 0.5)
             hueCursor.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            hueCursor.ZIndex = 24
             hueCursor.Parent = hueBar
             makeCorner(hueCursor, 999)
             makeStroke(hueCursor, Color3.fromRGB(35, 35, 35), 0.35)
 
             local svHit = makeButton(sv)
             svHit.Size = UDim2.fromScale(1, 1)
+            svHit.ZIndex = 25
 
             local hueHit = makeButton(hueBar)
             hueHit.Size = UDim2.fromScale(1, 1)
+            hueHit.ZIndex = 25
 
             local function updateVisuals(emit)
                 currentColor = Color3.fromHSV(h, s, v)
@@ -889,18 +851,61 @@ function iOSMenu:AddTab(tabSettings)
                 end
             end
 
-            local function setFromSV(inputPos)
-                local x = clamp01((inputPos.X - sv.AbsolutePosition.X) / math.max(sv.AbsoluteSize.X, 1))
-                local y = clamp01((inputPos.Y - sv.AbsolutePosition.Y) / math.max(sv.AbsoluteSize.Y, 1))
+            local function updatePopupPosition()
+                local holderPos = menuRef.Holder.AbsolutePosition
+                local holderSize = menuRef.Holder.AbsoluteSize
+                local rowPos = row.AbsolutePosition
+                local relativeX = rowPos.X - holderPos.X
+                local relativeY = rowPos.Y - holderPos.Y + row.AbsoluteSize.Y + 6
+                local maxX = math.max(0, holderSize.X - popup.AbsoluteSize.X - 8)
+                local maxY = math.max(0, holderSize.Y - popup.AbsoluteSize.Y - 8)
+                popup.Position = UDim2.fromOffset(math.clamp(relativeX, 8, maxX), math.clamp(relativeY, 8, maxY))
+            end
+
+            local function setFromSV(pos)
+                local x = clamp01((pos.X - sv.AbsolutePosition.X) / math.max(sv.AbsoluteSize.X, 1))
+                local y = clamp01((pos.Y - sv.AbsolutePosition.Y) / math.max(sv.AbsoluteSize.Y, 1))
                 s = x
                 v = 1 - y
                 updateVisuals(true)
             end
 
-            local function setFromHue(inputPos)
-                h = clamp01((inputPos.Y - hueBar.AbsolutePosition.Y) / math.max(hueBar.AbsoluteSize.Y, 1))
+            local function setFromHue(pos)
+                h = clamp01((pos.Y - hueBar.AbsolutePosition.Y) / math.max(hueBar.AbsoluteSize.Y, 1))
                 updateVisuals(true)
             end
+
+            local function openPopup()
+                updatePopupPosition()
+                popup.Visible = true
+                popup.BackgroundTransparency = 1
+                popupScale.Scale = 0.96
+                tween(popup, 0.16, { BackgroundTransparency = 0.04 }, Enum.EasingStyle.Quint)
+                tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
+                isOpen = true
+            end
+
+            local function closePopup()
+                if not isOpen then
+                    return
+                end
+                isOpen = false
+                tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+                tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
+                task.delay(0.12, function()
+                    if popup and popup.Parent and not isOpen then
+                        popup.Visible = false
+                    end
+                end)
+            end
+
+            rowButton.MouseButton1Click:Connect(function()
+                if isOpen then
+                    closePopup()
+                else
+                    openPopup()
+                end
+            end)
 
             svHit.MouseButton1Down:Connect(function()
                 dragMode = "sv"
@@ -926,21 +931,28 @@ function iOSMenu:AddTab(tabSettings)
                 end
             end))
 
+            table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
+                if not isOpen then
+                    return
+                end
+                if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+                    return
+                end
+                local p = input.Position
+                local inPopup = p.X >= popup.AbsolutePosition.X and p.X <= popup.AbsolutePosition.X + popup.AbsoluteSize.X
+                    and p.Y >= popup.AbsolutePosition.Y and p.Y <= popup.AbsolutePosition.Y + popup.AbsoluteSize.Y
+                local inRow = p.X >= row.AbsolutePosition.X and p.X <= row.AbsolutePosition.X + row.AbsoluteSize.X
+                    and p.Y >= row.AbsolutePosition.Y and p.Y <= row.AbsolutePosition.Y + row.AbsoluteSize.Y
+                if not inPopup and not inRow then
+                    closePopup()
+                end
+            end))
+
             table.insert(menuRef.Connections, UserInputService.InputEnded:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     dragMode = nil
                 end
             end))
-
-            local expandedHeight = 136
-            headerButton.MouseButton1Click:Connect(function()
-                expanded = not expanded
-                if expanded then
-                    tween(panel, 0.2, { Size = UDim2.new(1, -12, 0, expandedHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
-                else
-                    tween(panel, 0.2, { Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
-                end
-            end)
 
             updateVisuals(false)
 
@@ -987,6 +999,7 @@ function iOSMenu:AddTab(tabSettings)
 
             button.MouseButton1Click:Connect(function()
                 listening = true
+                menuRef._capturingKeybind = true
                 keyLabel.Text = "..."
             end)
 
@@ -997,6 +1010,7 @@ function iOSMenu:AddTab(tabSettings)
 
                 if listening then
                     listening = false
+                    menuRef._capturingKeybind = false
                     if input.KeyCode == Enum.KeyCode.Escape then
                         setKey(Enum.KeyCode.Unknown, true)
                     else
