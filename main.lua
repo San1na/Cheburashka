@@ -1,4 +1,4 @@
--- 52
+-- 42
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -260,31 +260,12 @@ function iOSMenu.new(config)
     header.Parent = contentGroup
 
     local title = makeLabel(header, settings.Name, settings.TitleTextSize, settings.TextColor, settings.Font, Enum.TextXAlignment.Left)
-    title.Size = UDim2.new(1, -120, 0, 30)
+    title.Size = UDim2.new(1, -8, 0, 30)
     title.Position = UDim2.fromOffset(8, 6)
 
     local subtitle = makeLabel(header, settings.Subtitle, settings.SmallTextSize, settings.SubTextColor, settings.Font, Enum.TextXAlignment.Left)
-    subtitle.Size = UDim2.new(1, -120, 0, 22)
+    subtitle.Size = UDim2.new(1, -8, 0, 22)
     subtitle.Position = UDim2.fromOffset(8, 34)
-
-    local closeButton = makeButton(header)
-    closeButton.Size = UDim2.fromOffset(30, 30)
-    closeButton.Position = UDim2.new(1, -36, 0, 10)
-    pressAnimation(closeButton)
-
-    local closeHover = Instance.new("Frame")
-    closeHover.Size = UDim2.fromOffset(20, 20)
-    closeHover.AnchorPoint = Vector2.new(0.5, 0.5)
-    closeHover.Position = UDim2.fromScale(0.5, 0.5)
-    closeHover.BackgroundColor3 = Color3.fromRGB(229, 229, 234)
-    closeHover.BackgroundTransparency = 1
-    closeHover.ZIndex = 1
-    closeHover.Parent = closeButton
-    makeCorner(closeHover, 999)
-
-    local closeIcon = makeLabel(closeButton, "X", 14, settings.SubTextColor, settings.Font, Enum.TextXAlignment.Center)
-    closeIcon.Size = UDim2.fromScale(1, 1)
-    closeIcon.ZIndex = 2
 
     local tabsShell = Instance.new("Frame")
     tabsShell.Name = "TabsShell"
@@ -360,20 +341,6 @@ function iOSMenu.new(config)
             end
         end))
     end
-
-    table.insert(self.Connections, closeButton.MouseButton1Click:Connect(function()
-        self:Toggle()
-    end))
-
-    table.insert(self.Connections, closeButton.MouseEnter:Connect(function()
-        tween(closeHover, 0.12, { BackgroundTransparency = 0.15, Size = UDim2.fromOffset(22, 22) }, Enum.EasingStyle.Quint)
-        tween(closeIcon, 0.12, { TextColor3 = settings.TextColor }, Enum.EasingStyle.Quint)
-    end))
-
-    table.insert(self.Connections, closeButton.MouseLeave:Connect(function()
-        tween(closeHover, 0.12, { BackgroundTransparency = 1, Size = UDim2.fromOffset(20, 20) }, Enum.EasingStyle.Quint)
-        tween(closeIcon, 0.12, { TextColor3 = settings.SubTextColor }, Enum.EasingStyle.Quint)
-    end))
 
     table.insert(self.Connections, UserInputService.InputBegan:Connect(function(input)
         if input.UserInputType ~= Enum.UserInputType.Keyboard then
@@ -765,6 +732,8 @@ function iOSMenu:AddTab(tabSettings)
             local options = data.Options or {}
             local selected = data.Default or options[1] or "None"
             local expanded = false
+            local optionRows = {}
+            local optionsHeight = 0
 
             local row = makeRow(data.Height)
             row.AutomaticSize = Enum.AutomaticSize.Y
@@ -774,64 +743,153 @@ function iOSMenu:AddTab(tabSettings)
             pressAnimation(hit)
 
             local title = makeLabel(row, data.Text or "Dropdown", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-            title.Size = UDim2.new(0.55, 0, 0, style.ItemHeight)
+            title.Size = UDim2.new(0.45, 0, 0, style.ItemHeight)
             title.Position = UDim2.fromOffset(12, 0)
 
             local valueLabel = makeLabel(row, tostring(selected), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
-            valueLabel.Size = UDim2.new(0.4, -14, 0, style.ItemHeight)
-            valueLabel.Position = UDim2.new(0.6, 0, 0, 0)
+            valueLabel.Size = UDim2.new(0.45, -20, 0, style.ItemHeight)
+            valueLabel.Position = UDim2.new(0.55, 0, 0, 0)
 
-            local menu = Instance.new("Frame")
-            menu.BackgroundTransparency = 1
-            menu.Size = UDim2.new(1, -12, 0, 0)
-            menu.Position = UDim2.fromOffset(6, style.ItemHeight)
-            menu.ClipsDescendants = true
-            menu.Parent = row
+            local arrow = makeLabel(row, "v", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
+            arrow.Size = UDim2.fromOffset(16, style.ItemHeight)
+            arrow.Position = UDim2.new(1, -20, 0, 0)
 
-            local menuLayout = Instance.new("UIListLayout")
-            menuLayout.Padding = UDim.new(0, 4)
-            menuLayout.Parent = menu
+            local panel = Instance.new("Frame")
+            panel.BackgroundColor3 = style.SurfaceColor
+            panel.BackgroundTransparency = 1
+            panel.Size = UDim2.new(1, -12, 0, 0)
+            panel.Position = UDim2.fromOffset(6, style.ItemHeight)
+            panel.ClipsDescendants = true
+            panel.Parent = row
+            makeCorner(panel, 10)
+            makeStroke(panel, style.BorderColor, 0.5)
 
-            local optionsHeight = 0
-            for _, option in ipairs(options) do
-                local optionButton = makeButton(menu)
-                optionButton.Size = UDim2.new(1, 0, 0, 26)
-                local optionText = makeLabel(optionButton, tostring(option), style.SmallTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-                optionText.Size = UDim2.new(1, -12, 1, 0)
-                optionText.Position = UDim2.fromOffset(8, 0)
+            local panelLayout = Instance.new("UIListLayout")
+            panelLayout.Padding = UDim.new(0, 3)
+            panelLayout.Parent = panel
 
-                optionButton.MouseButton1Click:Connect(function()
-                    selected = option
-                    valueLabel.Text = tostring(option)
-                    expanded = false
-                    tween(menu, 0.18, { Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
-                    if data.Callback then
-                        data.Callback(option)
-                    end
-                end)
-                optionsHeight = optionsHeight + 30
+            local function updateStyles()
+                for optionName, ref in pairs(optionRows) do
+                    local active = (selected == optionName)
+                    tween(ref.Marker, 0.12, { BackgroundTransparency = active and 0 or 1 }, Enum.EasingStyle.Quint)
+                    tween(ref.Text, 0.12, { TextColor3 = active and style.TextColor or style.SubTextColor }, Enum.EasingStyle.Quint)
+                    tween(ref.Button, 0.12, { BackgroundTransparency = active and 0.85 or 1 }, Enum.EasingStyle.Quint)
+                end
             end
 
-            makeCorner(menu, 10)
-            makeStroke(menu, style.BorderColor, 0.5)
+            local function setExpanded(state)
+                expanded = state
+                tween(arrow, 0.14, { Rotation = expanded and 180 or 0 }, Enum.EasingStyle.Quint)
+                if expanded then
+                    tween(panel, 0.18, { Size = UDim2.new(1, -12, 0, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
+                else
+                    tween(panel, 0.18, { Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
+                end
+            end
+
+            local function clearOptions()
+                for _, ref in pairs(optionRows) do
+                    if ref.Button then
+                        ref.Button:Destroy()
+                    end
+                end
+                optionRows = {}
+                optionsHeight = 0
+            end
+
+            local function rebuild(newOptions)
+                clearOptions()
+
+                local seen = {}
+                for _, option in ipairs(newOptions or {}) do
+                    local optionName = tostring(option)
+                    if not seen[optionName] then
+                        seen[optionName] = true
+
+                        local optionButton = Instance.new("TextButton")
+                        optionButton.AutoButtonColor = false
+                        optionButton.Text = ""
+                        optionButton.BackgroundTransparency = 1
+                        optionButton.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
+                        optionButton.Size = UDim2.new(1, -6, 0, 28)
+                        optionButton.Parent = panel
+                        makeCorner(optionButton, 8)
+
+                        local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
+                        optionText.Size = UDim2.new(1, -28, 1, 0)
+                        optionText.Position = UDim2.fromOffset(10, 0)
+
+                        local marker = Instance.new("Frame")
+                        marker.Size = UDim2.fromOffset(10, 10)
+                        marker.Position = UDim2.new(1, -16, 0.5, -5)
+                        marker.BackgroundColor3 = style.AccentColor
+                        marker.BackgroundTransparency = 1
+                        marker.Parent = optionButton
+                        makeCorner(marker, 999)
+
+                        optionRows[optionName] = {
+                            Button = optionButton,
+                            Text = optionText,
+                            Marker = marker,
+                        }
+
+                        optionButton.MouseButton1Click:Connect(function()
+                            selected = optionName
+                            valueLabel.Text = optionName
+                            updateStyles()
+                            setExpanded(false)
+                            if data.Callback then
+                                data.Callback(optionName)
+                            end
+                        end)
+
+                        optionsHeight = optionsHeight + 31
+                    end
+                end
+
+                if optionRows[selected] == nil then
+                    for optionName in pairs(optionRows) do
+                        selected = optionName
+                        break
+                    end
+                    selected = selected or "None"
+                end
+
+                valueLabel.Text = tostring(selected)
+                if expanded then
+                    panel.Size = UDim2.new(1, -12, 0, optionsHeight)
+                    panel.BackgroundTransparency = 0
+                else
+                    panel.Size = UDim2.new(1, -12, 0, 0)
+                    panel.BackgroundTransparency = 1
+                end
+                updateStyles()
+            end
 
             hit.MouseButton1Click:Connect(function()
-                expanded = not expanded
-                if expanded then
-                    tween(menu, 0.18, { Size = UDim2.new(1, -12, 0, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
-                else
-                    tween(menu, 0.18, { Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
-                end
+                setExpanded(not expanded)
             end)
 
+            rebuild(options)
             cacheOriginalTransparency(row)
+
             return {
                 Set = function(value)
-                    selected = value
-                    valueLabel.Text = tostring(value)
+                    local nextValue = tostring(value)
+                    if optionRows[nextValue] then
+                        selected = nextValue
+                        valueLabel.Text = nextValue
+                        updateStyles()
+                        if data.Callback then
+                            data.Callback(nextValue)
+                        end
+                    end
                 end,
                 Get = function()
                     return selected
+                end,
+                SetOptions = function(newOptions)
+                    rebuild(newOptions)
                 end,
             }
         end
@@ -841,6 +899,8 @@ function iOSMenu:AddTab(tabSettings)
             local options = data.Options or {}
             local states = {}
             local expanded = false
+            local optionRows = {}
+            local optionsHeight = 0
 
             local row = makeRow(data.Height)
             row.AutomaticSize = Enum.AutomaticSize.Y
@@ -850,46 +910,50 @@ function iOSMenu:AddTab(tabSettings)
             pressAnimation(hit)
 
             local title = makeLabel(row, data.Text or "MultiBoolean", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-            title.Size = UDim2.new(0.55, 0, 0, style.ItemHeight)
+            title.Size = UDim2.new(0.45, 0, 0, style.ItemHeight)
             title.Position = UDim2.fromOffset(12, 0)
 
             local valueLabel = makeLabel(row, "None", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
-            valueLabel.Size = UDim2.new(0.4, -14, 0, style.ItemHeight)
-            valueLabel.Position = UDim2.new(0.6, 0, 0, 0)
+            valueLabel.Size = UDim2.new(0.45, -20, 0, style.ItemHeight)
+            valueLabel.Position = UDim2.new(0.55, 0, 0, 0)
 
-            local menu = Instance.new("Frame")
-            menu.BackgroundTransparency = 1
-            menu.Size = UDim2.new(1, -12, 0, 0)
-            menu.Position = UDim2.fromOffset(6, style.ItemHeight)
-            menu.ClipsDescendants = true
-            menu.Parent = row
+            local arrow = makeLabel(row, "v", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
+            arrow.Size = UDim2.fromOffset(16, style.ItemHeight)
+            arrow.Position = UDim2.new(1, -20, 0, 0)
 
-            local menuLayout = Instance.new("UIListLayout")
-            menuLayout.Padding = UDim.new(0, 4)
-            menuLayout.Parent = menu
+            local panel = Instance.new("Frame")
+            panel.BackgroundColor3 = style.SurfaceColor
+            panel.BackgroundTransparency = 1
+            panel.Size = UDim2.new(1, -12, 0, 0)
+            panel.Position = UDim2.fromOffset(6, style.ItemHeight)
+            panel.ClipsDescendants = true
+            panel.Parent = row
+            makeCorner(panel, 10)
+            makeStroke(panel, style.BorderColor, 0.5)
 
-            makeCorner(menu, 10)
-            makeStroke(menu, style.BorderColor, 0.5)
-
-            local optionRows = {}
-            local optionsHeight = 0
+            local panelLayout = Instance.new("UIListLayout")
+            panelLayout.Padding = UDim.new(0, 3)
+            panelLayout.Parent = panel
 
             local function updateSummary()
-                local active = {}
-                for name, enabled in pairs(states) do
+                local count = 0
+                for _, enabled in pairs(states) do
                     if enabled then
-                        table.insert(active, name)
+                        count = count + 1
                     end
                 end
 
-                table.sort(active)
-
-                if #active == 0 then
+                if count == 0 then
                     valueLabel.Text = "None"
-                elseif #active == 1 then
-                    valueLabel.Text = active[1]
+                elseif count == 1 then
+                    for optionName, enabled in pairs(states) do
+                        if enabled then
+                            valueLabel.Text = optionName
+                            break
+                        end
+                    end
                 else
-                    valueLabel.Text = tostring(#active) .. " selected"
+                    valueLabel.Text = tostring(count) .. " selected"
                 end
             end
 
@@ -899,18 +963,34 @@ function iOSMenu:AddTab(tabSettings)
                     return
                 end
 
-                local enabled = states[option] == true
-                tween(ref.Dot, 0.12, { BackgroundTransparency = enabled and 0 or 1 }, Enum.EasingStyle.Quint)
-                tween(ref.Text, 0.12, { TextColor3 = enabled and style.TextColor or style.SubTextColor }, Enum.EasingStyle.Quint)
+                local active = states[option] == true
+                tween(ref.Knob, 0.12, {
+                    Position = active and UDim2.fromOffset(14, 2) or UDim2.fromOffset(2, 2),
+                }, Enum.EasingStyle.Quint)
+                tween(ref.Switch, 0.12, {
+                    BackgroundColor3 = active and style.AccentColor or Color3.fromRGB(207, 207, 214),
+                }, Enum.EasingStyle.Quint)
+                tween(ref.Text, 0.12, {
+                    TextColor3 = active and style.TextColor or style.SubTextColor,
+                }, Enum.EasingStyle.Quint)
             end
 
-            local function setOption(option, newState, silent)
+            local function setExpanded(state)
+                expanded = state
+                tween(arrow, 0.14, { Rotation = expanded and 180 or 0 }, Enum.EasingStyle.Quint)
+                if expanded then
+                    tween(panel, 0.18, { Size = UDim2.new(1, -12, 0, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
+                else
+                    tween(panel, 0.18, { Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
+                end
+            end
+
+            local function setOption(option, state, silent)
                 option = tostring(option)
                 if states[option] == nil then
                     return
                 end
-
-                states[option] = newState and true or false
+                states[option] = state and true or false
                 updateOptionVisual(option)
                 updateSummary()
 
@@ -920,85 +1000,88 @@ function iOSMenu:AddTab(tabSettings)
             end
 
             local function clearOptions()
-                for option, ref in pairs(optionRows) do
+                for _, ref in pairs(optionRows) do
                     if ref.Button then
                         ref.Button:Destroy()
                     end
-                    optionRows[option] = nil
                 end
-
-                for option in pairs(states) do
-                    states[option] = nil
-                end
-
+                optionRows = {}
+                states = {}
                 optionsHeight = 0
             end
 
             local function rebuild(newOptions, defaults)
                 clearOptions()
-
                 local seen = {}
+
                 for _, option in ipairs(newOptions or {}) do
                     local optionName = tostring(option)
                     if not seen[optionName] then
                         seen[optionName] = true
 
-                        local optionButton = makeButton(menu)
-                        optionButton.Size = UDim2.new(1, 0, 0, 26)
+                        local optionButton = Instance.new("TextButton")
+                        optionButton.AutoButtonColor = false
+                        optionButton.Text = ""
+                        optionButton.BackgroundTransparency = 1
+                        optionButton.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
+                        optionButton.Size = UDim2.new(1, -6, 0, 28)
+                        optionButton.Parent = panel
+                        makeCorner(optionButton, 8)
 
                         local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
-                        optionText.Size = UDim2.new(1, -28, 1, 0)
-                        optionText.Position = UDim2.fromOffset(8, 0)
+                        optionText.Size = UDim2.new(1, -42, 1, 0)
+                        optionText.Position = UDim2.fromOffset(10, 0)
 
-                        local dot = Instance.new("Frame")
-                        dot.Size = UDim2.fromOffset(12, 12)
-                        dot.Position = UDim2.new(1, -18, 0.5, -6)
-                        dot.BackgroundColor3 = style.AccentColor
-                        dot.BackgroundTransparency = 1
-                        dot.Parent = optionButton
-                        makeCorner(dot, 999)
+                        local switch = Instance.new("Frame")
+                        switch.Size = UDim2.fromOffset(28, 12)
+                        switch.Position = UDim2.new(1, -34, 0.5, -6)
+                        switch.BackgroundColor3 = Color3.fromRGB(207, 207, 214)
+                        switch.Parent = optionButton
+                        makeCorner(switch, 999)
 
-                        states[optionName] = typeof(defaults) == "table" and (defaults[optionName] == true) or false
+                        local knob = Instance.new("Frame")
+                        knob.Size = UDim2.fromOffset(8, 8)
+                        knob.Position = UDim2.fromOffset(2, 2)
+                        knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                        knob.Parent = switch
+                        makeCorner(knob, 999)
 
+                        states[optionName] = typeof(defaults) == "table" and defaults[optionName] == true or false
                         optionRows[optionName] = {
                             Button = optionButton,
                             Text = optionText,
-                            Dot = dot,
+                            Switch = switch,
+                            Knob = knob,
                         }
 
                         optionButton.MouseButton1Click:Connect(function()
                             setOption(optionName, not states[optionName], false)
                         end)
 
-                        optionsHeight = optionsHeight + 30
+                        optionsHeight = optionsHeight + 31
                     end
                 end
 
                 if expanded then
-                    menu.Size = UDim2.new(1, -12, 0, optionsHeight)
-                    menu.BackgroundTransparency = 0
+                    panel.Size = UDim2.new(1, -12, 0, optionsHeight)
+                    panel.BackgroundTransparency = 0
                 else
-                    menu.Size = UDim2.new(1, -12, 0, 0)
-                    menu.BackgroundTransparency = 1
+                    panel.Size = UDim2.new(1, -12, 0, 0)
+                    panel.BackgroundTransparency = 1
                 end
 
                 for optionName in pairs(optionRows) do
                     updateOptionVisual(optionName)
                 end
                 updateSummary()
-                cacheOriginalTransparency(row)
             end
 
             hit.MouseButton1Click:Connect(function()
-                expanded = not expanded
-                if expanded then
-                    tween(menu, 0.18, { Size = UDim2.new(1, -12, 0, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
-                else
-                    tween(menu, 0.18, { Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
-                end
+                setExpanded(not expanded)
             end)
 
             rebuild(options, data.Default)
+            cacheOriginalTransparency(row)
 
             return {
                 Set = function(option, newState, silent)
