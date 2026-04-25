@@ -1,4 +1,4 @@
--- 4
+-- 32
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -268,17 +268,45 @@ function iOSMenu.new(config)
     subtitle.Position = UDim2.fromOffset(8, 34)
 
     local closeButton = makeButton(header)
-    closeButton.Size = UDim2.fromOffset(30, 30)
-    closeButton.Position = UDim2.new(1, -36, 0, 10)
+    closeButton.Size = UDim2.fromOffset(32, 32)
+    closeButton.Position = UDim2.new(1, -38, 0, 9)
     pressAnimation(closeButton)
 
-    local closeDot = Instance.new("Frame")
-    closeDot.Size = UDim2.fromOffset(12, 12)
-    closeDot.AnchorPoint = Vector2.new(0.5, 0.5)
-    closeDot.Position = UDim2.fromScale(0.5, 0.5)
-    closeDot.BackgroundColor3 = Color3.fromRGB(255, 59, 48)
-    closeDot.Parent = closeButton
-    makeCorner(closeDot, 999)
+    local closeShell = Instance.new("Frame")
+    closeShell.Size = UDim2.fromOffset(18, 18)
+    closeShell.AnchorPoint = Vector2.new(0.5, 0.5)
+    closeShell.Position = UDim2.fromScale(0.5, 0.5)
+    closeShell.BackgroundColor3 = Color3.fromRGB(255, 79, 67)
+    closeShell.Parent = closeButton
+    makeCorner(closeShell, 999)
+    local closeStroke = makeStroke(closeShell, Color3.fromRGB(210, 58, 47), 0.2)
+
+    local closeGloss = Instance.new("Frame")
+    closeGloss.Size = UDim2.new(1, 0, 0.45, 0)
+    closeGloss.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    closeGloss.BackgroundTransparency = 0.72
+    closeGloss.Parent = closeShell
+    makeCorner(closeGloss, 999)
+
+    local closeX1 = Instance.new("Frame")
+    closeX1.Size = UDim2.fromOffset(8, 2)
+    closeX1.AnchorPoint = Vector2.new(0.5, 0.5)
+    closeX1.Position = UDim2.fromScale(0.5, 0.5)
+    closeX1.Rotation = 45
+    closeX1.BackgroundColor3 = Color3.fromRGB(120, 20, 16)
+    closeX1.BackgroundTransparency = 0.35
+    closeX1.Parent = closeShell
+    makeCorner(closeX1, 999)
+
+    local closeX2 = Instance.new("Frame")
+    closeX2.Size = UDim2.fromOffset(8, 2)
+    closeX2.AnchorPoint = Vector2.new(0.5, 0.5)
+    closeX2.Position = UDim2.fromScale(0.5, 0.5)
+    closeX2.Rotation = -45
+    closeX2.BackgroundColor3 = Color3.fromRGB(120, 20, 16)
+    closeX2.BackgroundTransparency = 0.35
+    closeX2.Parent = closeShell
+    makeCorner(closeX2, 999)
 
     local tabsShell = Instance.new("Frame")
     tabsShell.Name = "TabsShell"
@@ -357,6 +385,20 @@ function iOSMenu.new(config)
 
     table.insert(self.Connections, closeButton.MouseButton1Click:Connect(function()
         self:Toggle()
+    end))
+
+    table.insert(self.Connections, closeButton.MouseEnter:Connect(function()
+        tween(closeShell, 0.12, { Size = UDim2.fromOffset(20, 20), BackgroundColor3 = Color3.fromRGB(255, 92, 78) }, Enum.EasingStyle.Quint)
+        tween(closeStroke, 0.12, { Transparency = 0.08 }, Enum.EasingStyle.Quint)
+        tween(closeX1, 0.12, { BackgroundTransparency = 0.18 }, Enum.EasingStyle.Quint)
+        tween(closeX2, 0.12, { BackgroundTransparency = 0.18 }, Enum.EasingStyle.Quint)
+    end))
+
+    table.insert(self.Connections, closeButton.MouseLeave:Connect(function()
+        tween(closeShell, 0.14, { Size = UDim2.fromOffset(18, 18), BackgroundColor3 = Color3.fromRGB(255, 79, 67) }, Enum.EasingStyle.Quint)
+        tween(closeStroke, 0.14, { Transparency = 0.2 }, Enum.EasingStyle.Quint)
+        tween(closeX1, 0.14, { BackgroundTransparency = 0.35 }, Enum.EasingStyle.Quint)
+        tween(closeX2, 0.14, { BackgroundTransparency = 0.35 }, Enum.EasingStyle.Quint)
     end))
 
     table.insert(self.Connections, UserInputService.InputBegan:Connect(function(input)
