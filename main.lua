@@ -98,6 +98,28 @@ local function tween(instance, speed, props, easingStyle, easingDirection)
     return tw
 end
 
+local function tweenDescendants(root, speed, props)
+    for _, obj in ipairs(root:GetDescendants()) do
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if props.TextTransparency then
+                tween(obj, speed, { TextTransparency = props.TextTransparency })
+            end
+        end
+
+        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+            if props.BackgroundTransparency then
+                tween(obj, speed, { BackgroundTransparency = props.BackgroundTransparency })
+            end
+        end
+
+        if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+            if props.ImageTransparency then
+                tween(obj, speed, { ImageTransparency = props.ImageTransparency })
+            end
+        end
+    end
+end
+
 local function clamp01(v)
     return math.clamp(v, 0, 1)
 end
@@ -895,10 +917,22 @@ function iOSMenu:AddTab(tabSettings)
                     end
                 end
                 updatePopupPosition()
-                popup.Visible = true
-                popup.BackgroundTransparency = 1
-                popupStroke.Transparency = 1
-                popupScale.Scale = 0.96
+popup.Visible = true
+popup.BackgroundTransparency = 1
+popupStroke.Transparency = 1
+popupScale.Scale = 0.96
+
+tweenDescendants(popup, 0, {
+    BackgroundTransparency = 1,
+    TextTransparency = 1,
+    ImageTransparency = 1
+})
+
+tweenDescendants(popup, 0.16, {
+    BackgroundTransparency = 0,
+    TextTransparency = 0,
+    ImageTransparency = 0
+})
                 sv.BackgroundTransparency = 0
                 whiteLayer.BackgroundTransparency = 0
                 blackLayer.BackgroundTransparency = 0
@@ -916,9 +950,20 @@ function iOSMenu:AddTab(tabSettings)
                     return
                 end
                 isOpen = false
-                tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
-                tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
-                tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
+tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
+tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
+
+tweenDescendants(popup, 0.12, {
+    BackgroundTransparency = 1,
+    TextTransparency = 1,
+    ImageTransparency = 1
+})
+    tweenDescendants(self.Holder, hideDuration, {
+    BackgroundTransparency = 1,
+    TextTransparency = 1,
+    ImageTransparency = 1
+})
                 task.delay(0.12, function()
                     if popup and popup.Parent and not isOpen then
                         popup.Visible = false
