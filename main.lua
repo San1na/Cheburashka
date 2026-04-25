@@ -1,4 +1,4 @@
--- 23
+-- 42
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -832,12 +832,14 @@ function iOSMenu:AddTab(tabSettings)
 
             local function rebuild(newOptions)
                 clearOptions()
+                local optionCount = 0
 
                 local seen = {}
                 for _, option in ipairs(newOptions or {}) do
                     local optionName = tostring(option)
                     if not seen[optionName] then
                         seen[optionName] = true
+                        optionCount = optionCount + 1
 
                         local optionButton = Instance.new("TextButton")
                         optionButton.AutoButtonColor = false
@@ -879,9 +881,10 @@ function iOSMenu:AddTab(tabSettings)
                             end
                         end)
 
-                        optionsHeight = optionsHeight + 31
                     end
                 end
+
+                optionsHeight = (optionCount * 28) + (math.max(optionCount - 1, 0) * 3) + 8
 
                 if optionRows[selected] == nil then
                     for optionName in pairs(optionRows) do
@@ -1091,12 +1094,14 @@ function iOSMenu:AddTab(tabSettings)
 
             local function rebuild(newOptions, defaults)
                 clearOptions()
+                local optionCount = 0
                 local seen = {}
 
                 for _, option in ipairs(newOptions or {}) do
                     local optionName = tostring(option)
                     if not seen[optionName] then
                         seen[optionName] = true
+                        optionCount = optionCount + 1
 
                         local optionButton = Instance.new("TextButton")
                         optionButton.AutoButtonColor = false
@@ -1141,9 +1146,10 @@ function iOSMenu:AddTab(tabSettings)
                             setOption(optionName, not states[optionName], false)
                         end)
 
-                        optionsHeight = optionsHeight + 31
                     end
                 end
+
+                optionsHeight = (optionCount * 28) + (math.max(optionCount - 1, 0) * 3) + 8
 
                 refreshPopupPlacement()
 
