@@ -1,4 +1,4 @@
--- 42
+-- 45
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -736,10 +736,9 @@ function iOSMenu:AddTab(tabSettings)
             local optionsHeight = 0
 
             local row = makeRow(data.Height)
-            row.AutomaticSize = Enum.AutomaticSize.Y
 
             local hit = makeButton(row)
-            hit.Size = UDim2.new(1, 0, 0, style.ItemHeight)
+            hit.Size = UDim2.fromScale(1, 1)
             pressAnimation(hit)
 
             local title = makeLabel(row, data.Text or "Dropdown", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
@@ -747,26 +746,47 @@ function iOSMenu:AddTab(tabSettings)
             title.Position = UDim2.fromOffset(12, 0)
 
             local valueLabel = makeLabel(row, tostring(selected), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
-            valueLabel.Size = UDim2.new(0.45, -20, 0, style.ItemHeight)
+            valueLabel.Size = UDim2.new(0.45, -12, 0, style.ItemHeight)
             valueLabel.Position = UDim2.new(0.55, 0, 0, 0)
 
-            local arrow = makeLabel(row, "v", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
-            arrow.Size = UDim2.fromOffset(16, style.ItemHeight)
-            arrow.Position = UDim2.new(1, -20, 0, 0)
+            local popup = Instance.new("Frame")
+            popup.Visible = false
+            popup.ClipsDescendants = true
+            popup.BackgroundColor3 = style.SurfaceColor
+            popup.BackgroundTransparency = 1
+            popup.Position = UDim2.fromOffset(4, row.AbsoluteSize.Y + 4)
+            popup.Size = UDim2.fromOffset(math.max(row.AbsoluteSize.X - 8, 120), 0)
+            popup.ZIndex = 40
+            popup.Parent = row
+            makeCorner(popup, 10)
+            local popupStroke = makeStroke(popup, style.BorderColor, 1)
 
-            local panel = Instance.new("Frame")
-            panel.BackgroundColor3 = style.SurfaceColor
-            panel.BackgroundTransparency = 1
-            panel.Size = UDim2.new(1, -12, 0, 0)
-            panel.Position = UDim2.fromOffset(6, style.ItemHeight)
-            panel.ClipsDescendants = true
-            panel.Parent = row
-            makeCorner(panel, 10)
-            makeStroke(panel, style.BorderColor, 0.5)
+            local popupScale = Instance.new("UIScale")
+            popupScale.Scale = 0.98
+            popupScale.Parent = popup
+
+            local popupPad = Instance.new("UIPadding")
+            popupPad.PaddingTop = UDim.new(0, 4)
+            popupPad.PaddingBottom = UDim.new(0, 4)
+            popupPad.PaddingLeft = UDim.new(0, 4)
+            popupPad.PaddingRight = UDim.new(0, 4)
+            popupPad.Parent = popup
 
             local panelLayout = Instance.new("UIListLayout")
             panelLayout.Padding = UDim.new(0, 3)
-            panelLayout.Parent = panel
+            panelLayout.Parent = popup
+
+            local function containsPoint(gui, point)
+                local pos = gui.AbsolutePosition
+                local size = gui.AbsoluteSize
+                return point.X >= pos.X and point.X <= pos.X + size.X and point.Y >= pos.Y and point.Y <= pos.Y + size.Y
+            end
+
+            local function refreshPopupPlacement()
+                popup.Position = UDim2.fromOffset(4, row.AbsoluteSize.Y + 4)
+                local width = math.max(row.AbsoluteSize.X - 8, 120)
+                popup.Size = UDim2.fromOffset(width, expanded and optionsHeight or 0)
+            end
 
             local function updateStyles()
                 for optionName, ref in pairs(optionRows) do
@@ -779,11 +799,24 @@ function iOSMenu:AddTab(tabSettings)
 
             local function setExpanded(state)
                 expanded = state
-                tween(arrow, 0.14, { Rotation = expanded and 180 or 0 }, Enum.EasingStyle.Quint)
                 if expanded then
-                    tween(panel, 0.18, { Size = UDim2.new(1, -12, 0, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
+                    popup.Visible = true
+                    popupScale.Scale = 0.98
+                    popup.BackgroundTransparency = 1
+                    popupStroke.Transparency = 1
+                    refreshPopupPlacement()
+                    tween(popup, 0.16, { Size = UDim2.fromOffset(math.max(row.AbsoluteSize.X - 8, 120), optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
+                    tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Quint)
+                    tween(popupStroke, 0.16, { Transparency = 0.45 }, Enum.EasingStyle.Quint)
                 else
-                    tween(panel, 0.18, { Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
+                    tween(popup, 0.14, { Size = UDim2.fromOffset(math.max(row.AbsoluteSize.X - 8, 120), 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
+                    tween(popupScale, 0.14, { Scale = 0.98 }, Enum.EasingStyle.Quint)
+                    tween(popupStroke, 0.14, { Transparency = 1 }, Enum.EasingStyle.Quint)
+                    task.delay(0.14, function()
+                        if popup and popup.Parent and not expanded then
+                            popup.Visible = false
+                        end
+                    end)
                 end
             end
 
@@ -812,18 +845,21 @@ function iOSMenu:AddTab(tabSettings)
                         optionButton.BackgroundTransparency = 1
                         optionButton.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
                         optionButton.Size = UDim2.new(1, -6, 0, 28)
-                        optionButton.Parent = panel
+                        optionButton.ZIndex = 41
+                        optionButton.Parent = popup
                         makeCorner(optionButton, 8)
 
                         local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
                         optionText.Size = UDim2.new(1, -28, 1, 0)
                         optionText.Position = UDim2.fromOffset(10, 0)
+                        optionText.ZIndex = 42
 
                         local marker = Instance.new("Frame")
                         marker.Size = UDim2.fromOffset(10, 10)
                         marker.Position = UDim2.new(1, -16, 0.5, -5)
                         marker.BackgroundColor3 = style.AccentColor
                         marker.BackgroundTransparency = 1
+                        marker.ZIndex = 42
                         marker.Parent = optionButton
                         makeCorner(marker, 999)
 
@@ -856,19 +892,29 @@ function iOSMenu:AddTab(tabSettings)
                 end
 
                 valueLabel.Text = tostring(selected)
-                if expanded then
-                    panel.Size = UDim2.new(1, -12, 0, optionsHeight)
-                    panel.BackgroundTransparency = 0
-                else
-                    panel.Size = UDim2.new(1, -12, 0, 0)
-                    panel.BackgroundTransparency = 1
-                end
+                refreshPopupPlacement()
                 updateStyles()
             end
 
             hit.MouseButton1Click:Connect(function()
                 setExpanded(not expanded)
             end)
+
+            table.insert(menuRef.Connections, row:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+                refreshPopupPlacement()
+            end))
+
+            table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
+                if not expanded then
+                    return
+                end
+                if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+                    return
+                end
+                if not containsPoint(row, input.Position) and not containsPoint(popup, input.Position) then
+                    setExpanded(false)
+                end
+            end))
 
             rebuild(options)
             cacheOriginalTransparency(row)
@@ -903,10 +949,9 @@ function iOSMenu:AddTab(tabSettings)
             local optionsHeight = 0
 
             local row = makeRow(data.Height)
-            row.AutomaticSize = Enum.AutomaticSize.Y
 
             local hit = makeButton(row)
-            hit.Size = UDim2.new(1, 0, 0, style.ItemHeight)
+            hit.Size = UDim2.fromScale(1, 1)
             pressAnimation(hit)
 
             local title = makeLabel(row, data.Text or "MultiBoolean", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
@@ -914,26 +959,47 @@ function iOSMenu:AddTab(tabSettings)
             title.Position = UDim2.fromOffset(12, 0)
 
             local valueLabel = makeLabel(row, "None", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
-            valueLabel.Size = UDim2.new(0.45, -20, 0, style.ItemHeight)
+            valueLabel.Size = UDim2.new(0.45, -12, 0, style.ItemHeight)
             valueLabel.Position = UDim2.new(0.55, 0, 0, 0)
 
-            local arrow = makeLabel(row, "v", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
-            arrow.Size = UDim2.fromOffset(16, style.ItemHeight)
-            arrow.Position = UDim2.new(1, -20, 0, 0)
+            local popup = Instance.new("Frame")
+            popup.Visible = false
+            popup.ClipsDescendants = true
+            popup.BackgroundColor3 = style.SurfaceColor
+            popup.BackgroundTransparency = 1
+            popup.Position = UDim2.fromOffset(4, row.AbsoluteSize.Y + 4)
+            popup.Size = UDim2.fromOffset(math.max(row.AbsoluteSize.X - 8, 120), 0)
+            popup.ZIndex = 40
+            popup.Parent = row
+            makeCorner(popup, 10)
+            local popupStroke = makeStroke(popup, style.BorderColor, 1)
 
-            local panel = Instance.new("Frame")
-            panel.BackgroundColor3 = style.SurfaceColor
-            panel.BackgroundTransparency = 1
-            panel.Size = UDim2.new(1, -12, 0, 0)
-            panel.Position = UDim2.fromOffset(6, style.ItemHeight)
-            panel.ClipsDescendants = true
-            panel.Parent = row
-            makeCorner(panel, 10)
-            makeStroke(panel, style.BorderColor, 0.5)
+            local popupScale = Instance.new("UIScale")
+            popupScale.Scale = 0.98
+            popupScale.Parent = popup
+
+            local popupPad = Instance.new("UIPadding")
+            popupPad.PaddingTop = UDim.new(0, 4)
+            popupPad.PaddingBottom = UDim.new(0, 4)
+            popupPad.PaddingLeft = UDim.new(0, 4)
+            popupPad.PaddingRight = UDim.new(0, 4)
+            popupPad.Parent = popup
 
             local panelLayout = Instance.new("UIListLayout")
             panelLayout.Padding = UDim.new(0, 3)
-            panelLayout.Parent = panel
+            panelLayout.Parent = popup
+
+            local function containsPoint(gui, point)
+                local pos = gui.AbsolutePosition
+                local size = gui.AbsoluteSize
+                return point.X >= pos.X and point.X <= pos.X + size.X and point.Y >= pos.Y and point.Y <= pos.Y + size.Y
+            end
+
+            local function refreshPopupPlacement()
+                popup.Position = UDim2.fromOffset(4, row.AbsoluteSize.Y + 4)
+                local width = math.max(row.AbsoluteSize.X - 8, 120)
+                popup.Size = UDim2.fromOffset(width, expanded and optionsHeight or 0)
+            end
 
             local function updateSummary()
                 local count = 0
@@ -977,11 +1043,24 @@ function iOSMenu:AddTab(tabSettings)
 
             local function setExpanded(state)
                 expanded = state
-                tween(arrow, 0.14, { Rotation = expanded and 180 or 0 }, Enum.EasingStyle.Quint)
                 if expanded then
-                    tween(panel, 0.18, { Size = UDim2.new(1, -12, 0, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
+                    popup.Visible = true
+                    popupScale.Scale = 0.98
+                    popup.BackgroundTransparency = 1
+                    popupStroke.Transparency = 1
+                    refreshPopupPlacement()
+                    tween(popup, 0.16, { Size = UDim2.fromOffset(math.max(row.AbsoluteSize.X - 8, 120), optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
+                    tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Quint)
+                    tween(popupStroke, 0.16, { Transparency = 0.45 }, Enum.EasingStyle.Quint)
                 else
-                    tween(panel, 0.18, { Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
+                    tween(popup, 0.14, { Size = UDim2.fromOffset(math.max(row.AbsoluteSize.X - 8, 120), 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
+                    tween(popupScale, 0.14, { Scale = 0.98 }, Enum.EasingStyle.Quint)
+                    tween(popupStroke, 0.14, { Transparency = 1 }, Enum.EasingStyle.Quint)
+                    task.delay(0.14, function()
+                        if popup and popup.Parent and not expanded then
+                            popup.Visible = false
+                        end
+                    end)
                 end
             end
 
@@ -1025,17 +1104,20 @@ function iOSMenu:AddTab(tabSettings)
                         optionButton.BackgroundTransparency = 1
                         optionButton.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
                         optionButton.Size = UDim2.new(1, -6, 0, 28)
-                        optionButton.Parent = panel
+                        optionButton.ZIndex = 41
+                        optionButton.Parent = popup
                         makeCorner(optionButton, 8)
 
                         local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
                         optionText.Size = UDim2.new(1, -42, 1, 0)
                         optionText.Position = UDim2.fromOffset(10, 0)
+                        optionText.ZIndex = 42
 
                         local switch = Instance.new("Frame")
                         switch.Size = UDim2.fromOffset(28, 12)
                         switch.Position = UDim2.new(1, -34, 0.5, -6)
                         switch.BackgroundColor3 = Color3.fromRGB(207, 207, 214)
+                        switch.ZIndex = 42
                         switch.Parent = optionButton
                         makeCorner(switch, 999)
 
@@ -1043,6 +1125,7 @@ function iOSMenu:AddTab(tabSettings)
                         knob.Size = UDim2.fromOffset(8, 8)
                         knob.Position = UDim2.fromOffset(2, 2)
                         knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                        knob.ZIndex = 43
                         knob.Parent = switch
                         makeCorner(knob, 999)
 
@@ -1062,13 +1145,7 @@ function iOSMenu:AddTab(tabSettings)
                     end
                 end
 
-                if expanded then
-                    panel.Size = UDim2.new(1, -12, 0, optionsHeight)
-                    panel.BackgroundTransparency = 0
-                else
-                    panel.Size = UDim2.new(1, -12, 0, 0)
-                    panel.BackgroundTransparency = 1
-                end
+                refreshPopupPlacement()
 
                 for optionName in pairs(optionRows) do
                     updateOptionVisual(optionName)
@@ -1079,6 +1156,22 @@ function iOSMenu:AddTab(tabSettings)
             hit.MouseButton1Click:Connect(function()
                 setExpanded(not expanded)
             end)
+
+            table.insert(menuRef.Connections, row:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+                refreshPopupPlacement()
+            end))
+
+            table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
+                if not expanded then
+                    return
+                end
+                if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+                    return
+                end
+                if not containsPoint(row, input.Position) and not containsPoint(popup, input.Position) then
+                    setExpanded(false)
+                end
+            end))
 
             rebuild(options, data.Default)
             cacheOriginalTransparency(row)
