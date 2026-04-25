@@ -1,4 +1,4 @@
--- 23
+-- 43
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -754,10 +754,8 @@ function iOSMenu:AddTab(tabSettings)
             popup.ClipsDescendants = true
             popup.BackgroundColor3 = style.SurfaceColor
             popup.BackgroundTransparency = 1
-            popup.Position = UDim2.fromOffset(4, row.AbsoluteSize.Y + 4)
-            popup.Size = UDim2.fromOffset(math.max(row.AbsoluteSize.X - 8, 120), 0)
-            popup.ZIndex = 40
-            popup.Parent = row
+            popup.ZIndex = 50
+            popup.Parent = menuRef.Root
             makeCorner(popup, 10)
             local popupStroke = makeStroke(popup, style.BorderColor, 1)
 
@@ -783,8 +781,14 @@ function iOSMenu:AddTab(tabSettings)
             end
 
             local function refreshPopupPlacement()
-                popup.Position = UDim2.fromOffset(4, row.AbsoluteSize.Y + 4)
+                if not popup or not popup.Parent then return end
+                local rootPos = menuRef.Root.AbsolutePosition
+                local rowPos = row.AbsolutePosition
+                local relativeX = rowPos.X - rootPos.X + 4
+                local relativeY = rowPos.Y - rootPos.Y + row.AbsoluteSize.Y + 4
                 local width = math.max(row.AbsoluteSize.X - 8, 120)
+
+                popup.Position = UDim2.fromOffset(relativeX, relativeY)
                 popup.Size = UDim2.fromOffset(width, expanded and optionsHeight or 0)
             end
 
@@ -845,21 +849,21 @@ function iOSMenu:AddTab(tabSettings)
                         optionButton.BackgroundTransparency = 1
                         optionButton.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
                         optionButton.Size = UDim2.new(1, -6, 0, 28)
-                        optionButton.ZIndex = 41
+                        optionButton.ZIndex = 51
                         optionButton.Parent = popup
                         makeCorner(optionButton, 8)
 
                         local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
                         optionText.Size = UDim2.new(1, -28, 1, 0)
                         optionText.Position = UDim2.fromOffset(10, 0)
-                        optionText.ZIndex = 42
+                        optionText.ZIndex = 52
 
                         local marker = Instance.new("Frame")
                         marker.Size = UDim2.fromOffset(10, 10)
                         marker.Position = UDim2.new(1, -16, 0.5, -5)
                         marker.BackgroundColor3 = style.AccentColor
                         marker.BackgroundTransparency = 1
-                        marker.ZIndex = 42
+                        marker.ZIndex = 52
                         marker.Parent = optionButton
                         makeCorner(marker, 999)
 
@@ -904,6 +908,12 @@ function iOSMenu:AddTab(tabSettings)
                 refreshPopupPlacement()
             end))
 
+            table.insert(menuRef.Connections, row:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+                if expanded then
+                    refreshPopupPlacement()
+                end
+            end))
+
             table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
                 if not expanded then
                     return
@@ -915,6 +925,19 @@ function iOSMenu:AddTab(tabSettings)
                     setExpanded(false)
                 end
             end))
+
+            local popupApi = {}
+            function popupApi:CloseInstant()
+                expanded = false
+                if popup and popup.Parent then
+                    popup.Visible = false
+                    popup.BackgroundTransparency = 1
+                    popupStroke.Transparency = 1
+                    popupScale.Scale = 0.98
+                    popup.Size = UDim2.fromOffset(math.max(row.AbsoluteSize.X - 8, 120), 0)
+                end
+            end
+            table.insert(menuRef._colorPopups, popupApi)
 
             rebuild(options)
             cacheOriginalTransparency(row)
@@ -967,10 +990,8 @@ function iOSMenu:AddTab(tabSettings)
             popup.ClipsDescendants = true
             popup.BackgroundColor3 = style.SurfaceColor
             popup.BackgroundTransparency = 1
-            popup.Position = UDim2.fromOffset(4, row.AbsoluteSize.Y + 4)
-            popup.Size = UDim2.fromOffset(math.max(row.AbsoluteSize.X - 8, 120), 0)
-            popup.ZIndex = 40
-            popup.Parent = row
+            popup.ZIndex = 50
+            popup.Parent = menuRef.Root
             makeCorner(popup, 10)
             local popupStroke = makeStroke(popup, style.BorderColor, 1)
 
@@ -996,8 +1017,14 @@ function iOSMenu:AddTab(tabSettings)
             end
 
             local function refreshPopupPlacement()
-                popup.Position = UDim2.fromOffset(4, row.AbsoluteSize.Y + 4)
+                if not popup or not popup.Parent then return end
+                local rootPos = menuRef.Root.AbsolutePosition
+                local rowPos = row.AbsolutePosition
+                local relativeX = rowPos.X - rootPos.X + 4
+                local relativeY = rowPos.Y - rootPos.Y + row.AbsoluteSize.Y + 4
                 local width = math.max(row.AbsoluteSize.X - 8, 120)
+
+                popup.Position = UDim2.fromOffset(relativeX, relativeY)
                 popup.Size = UDim2.fromOffset(width, expanded and optionsHeight or 0)
             end
 
@@ -1104,20 +1131,20 @@ function iOSMenu:AddTab(tabSettings)
                         optionButton.BackgroundTransparency = 1
                         optionButton.BackgroundColor3 = Color3.fromRGB(245, 245, 248)
                         optionButton.Size = UDim2.new(1, -6, 0, 28)
-                        optionButton.ZIndex = 41
+                        optionButton.ZIndex = 51
                         optionButton.Parent = popup
                         makeCorner(optionButton, 8)
 
                         local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
                         optionText.Size = UDim2.new(1, -42, 1, 0)
                         optionText.Position = UDim2.fromOffset(10, 0)
-                        optionText.ZIndex = 42
+                        optionText.ZIndex = 52
 
                         local switch = Instance.new("Frame")
                         switch.Size = UDim2.fromOffset(28, 12)
                         switch.Position = UDim2.new(1, -34, 0.5, -6)
                         switch.BackgroundColor3 = Color3.fromRGB(207, 207, 214)
-                        switch.ZIndex = 42
+                        switch.ZIndex = 52
                         switch.Parent = optionButton
                         makeCorner(switch, 999)
 
@@ -1125,7 +1152,7 @@ function iOSMenu:AddTab(tabSettings)
                         knob.Size = UDim2.fromOffset(8, 8)
                         knob.Position = UDim2.fromOffset(2, 2)
                         knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                        knob.ZIndex = 43
+                        knob.ZIndex = 53
                         knob.Parent = switch
                         makeCorner(knob, 999)
 
@@ -1161,6 +1188,12 @@ function iOSMenu:AddTab(tabSettings)
                 refreshPopupPlacement()
             end))
 
+            table.insert(menuRef.Connections, row:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+                if expanded then
+                    refreshPopupPlacement()
+                end
+            end))
+
             table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
                 if not expanded then
                     return
@@ -1172,6 +1205,19 @@ function iOSMenu:AddTab(tabSettings)
                     setExpanded(false)
                 end
             end))
+
+            local popupApi = {}
+            function popupApi:CloseInstant()
+                expanded = false
+                if popup and popup.Parent then
+                    popup.Visible = false
+                    popup.BackgroundTransparency = 1
+                    popupStroke.Transparency = 1
+                    popupScale.Scale = 0.98
+                    popup.Size = UDim2.fromOffset(math.max(row.AbsoluteSize.X - 8, 120), 0)
+                end
+            end
+            table.insert(menuRef._colorPopups, popupApi)
 
             rebuild(options, data.Default)
             cacheOriginalTransparency(row)
