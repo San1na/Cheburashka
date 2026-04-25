@@ -1,9 +1,3 @@
---[[
-    iOSMenu Library for Roblox
-    GitHub raw link placeholder (replace with your own):
-    https://raw.githubusercontent.com/USERNAME/REPOSITORY/BRANCH/main.lua
-]]
-
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -16,12 +10,12 @@ iOSMenu.Defaults = {
     Subtitle = "Library",
     Parent = nil,
     Keybind = Enum.KeyCode.RightShift,
-    Width = 520,
-    Height = 360,
+    Width = 560,
+    Height = 420,
     Draggable = true,
     UseBlur = false,
-    CornerRadius = 18,
-    AccentColor = Color3.fromRGB(10, 132, 255),
+    CornerRadius = 22,
+    AccentColor = Color3.fromRGB(0, 122, 255),
     BackgroundColor = Color3.fromRGB(242, 242, 247),
     SurfaceColor = Color3.fromRGB(255, 255, 255),
     TextColor = Color3.fromRGB(28, 28, 30),
@@ -31,84 +25,104 @@ iOSMenu.Defaults = {
     SmallTextSize = 13,
     NormalTextSize = 14,
     TitleTextSize = 22,
-    AnimationSpeed = 0.2,
+    AnimationSpeed = 0.22,
     ItemHeight = 42,
     SafeAreaPadding = 12,
     BackgroundTransparency = 0.08,
     SurfaceTransparency = 0,
 }
 
-local function deepCopy(t)
-    local result = {}
-    for k, v in pairs(t) do
-        result[k] = typeof(v) == "table" and deepCopy(v) or v
+local function deepCopy(tbl)
+    local copy = {}
+    for key, value in pairs(tbl) do
+        copy[key] = typeof(value) == "table" and deepCopy(value) or value
     end
-    return result
+    return copy
 end
 
-local function applyCorner(instance, radius)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, radius)
-    c.Parent = instance
-    return c
+local function makeCorner(instance, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = instance
+    return corner
 end
 
-local function tween(object, speed, props)
-    local tw = TweenService:Create(object, TweenInfo.new(speed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
-    tw:Play()
-    return tw
-end
-
-local function createText(parent, text, size, color, font, alignment)
-    local label = Instance.new("TextLabel")
-    label.BackgroundTransparency = 1
-    label.Text = text or ""
-    label.Font = font
-    label.TextSize = size
-    label.TextColor3 = color
-    label.TextXAlignment = alignment or Enum.TextXAlignment.Left
-    label.TextYAlignment = Enum.TextYAlignment.Center
-    label.Parent = parent
-    return label
-end
-
-local function addStroke(parent, color, transparency)
+local function makeStroke(instance, color, transparency)
     local stroke = Instance.new("UIStroke")
     stroke.Color = color
     stroke.Transparency = transparency or 0
     stroke.Thickness = 1
-    stroke.Parent = parent
+    stroke.Parent = instance
     return stroke
 end
 
-local function addPadding(parent, pad)
+local function makePadding(instance, amount)
     local p = Instance.new("UIPadding")
-    p.PaddingTop = UDim.new(0, pad)
-    p.PaddingBottom = UDim.new(0, pad)
-    p.PaddingLeft = UDim.new(0, pad)
-    p.PaddingRight = UDim.new(0, pad)
-    p.Parent = parent
+    p.PaddingTop = UDim.new(0, amount)
+    p.PaddingBottom = UDim.new(0, amount)
+    p.PaddingLeft = UDim.new(0, amount)
+    p.PaddingRight = UDim.new(0, amount)
+    p.Parent = instance
     return p
 end
 
 local function makeButton(parent)
-    local button = Instance.new("TextButton")
-    button.AutoButtonColor = false
-    button.BackgroundTransparency = 1
-    button.Text = ""
-    button.Parent = parent
-    return button
+    local b = Instance.new("TextButton")
+    b.AutoButtonColor = false
+    b.BackgroundTransparency = 1
+    b.Text = ""
+    b.Parent = parent
+    return b
 end
 
-local function resolveParent(customParent)
+local function makeLabel(parent, text, size, color, font, align)
+    local l = Instance.new("TextLabel")
+    l.BackgroundTransparency = 1
+    l.Text = text or ""
+    l.TextSize = size
+    l.TextColor3 = color
+    l.Font = font
+    l.TextXAlignment = align or Enum.TextXAlignment.Left
+    l.TextYAlignment = Enum.TextYAlignment.Center
+    l.Parent = parent
+    return l
+end
+
+local function tween(instance, speed, props, easingStyle, easingDirection)
+    local tw = TweenService:Create(
+        instance,
+        TweenInfo.new(speed, easingStyle or Enum.EasingStyle.Quad, easingDirection or Enum.EasingDirection.Out),
+        props
+    )
+    tw:Play()
+    return tw
+end
+
+local function pressAnimation(button)
+    local scale = Instance.new("UIScale")
+    scale.Scale = 1
+    scale.Parent = button
+
+    button.MouseButton1Down:Connect(function()
+        tween(scale, 0.08, { Scale = 0.97 })
+    end)
+    button.MouseButton1Up:Connect(function()
+        tween(scale, 0.12, { Scale = 1 }, Enum.EasingStyle.Back)
+    end)
+    button.MouseLeave:Connect(function()
+        tween(scale, 0.12, { Scale = 1 }, Enum.EasingStyle.Back)
+    end)
+end
+
+local function getParent(customParent)
     if customParent then
         return customParent
     end
     local player = Players.LocalPlayer
     local playerGui = player:WaitForChild("PlayerGui")
-    local existing = playerGui:FindFirstChild("iOSMenuRoot")
-    if existing then
-        return existing
+    local root = playerGui:FindFirstChild("iOSMenuRoot")
+    if root then
+        return root
     end
     local gui = Instance.new("ScreenGui")
     gui.Name = "iOSMenuRoot"
@@ -122,8 +136,8 @@ end
 function iOSMenu.new(config)
     config = config or {}
     local settings = deepCopy(iOSMenu.Defaults)
-    for k, v in pairs(config) do
-        settings[k] = v
+    for key, value in pairs(config) do
+        settings[key] = value
     end
 
     local self = setmetatable({}, iOSMenu)
@@ -133,7 +147,8 @@ function iOSMenu.new(config)
     self.CurrentTab = nil
     self.Connections = {}
 
-    local root = resolveParent(settings.Parent)
+    local root = getParent(settings.Parent)
+
     local holder = Instance.new("Frame")
     holder.Name = "Window"
     holder.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -141,74 +156,76 @@ function iOSMenu.new(config)
     holder.Size = UDim2.fromOffset(settings.Width, settings.Height)
     holder.BackgroundColor3 = settings.BackgroundColor
     holder.BackgroundTransparency = settings.BackgroundTransparency
+    holder.ClipsDescendants = true
     holder.Parent = root
-    applyCorner(holder, settings.CornerRadius)
-    addStroke(holder, settings.BorderColor, 0.15)
-
-    local shadow = Instance.new("ImageLabel")
-    shadow.Name = "Shadow"
-    shadow.Image = "rbxassetid://1316045217"
-    shadow.ScaleType = Enum.ScaleType.Slice
-    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-    shadow.BackgroundTransparency = 1
-    shadow.ImageTransparency = 0.6
-    shadow.Size = UDim2.new(1, 70, 1, 70)
-    shadow.Position = UDim2.new(0, -35, 0, -35)
-    shadow.ZIndex = 0
-    shadow.Parent = holder
-
-    local mainLayout = Instance.new("UIListLayout")
-    mainLayout.FillDirection = Enum.FillDirection.Vertical
-    mainLayout.Padding = UDim.new(0, 0)
-    mainLayout.Parent = holder
+    makeCorner(holder, settings.CornerRadius)
+    makeStroke(holder, settings.BorderColor, 0.12)
 
     local header = Instance.new("Frame")
     header.Name = "Header"
-    header.Size = UDim2.new(1, 0, 0, 72)
     header.BackgroundTransparency = 1
+    header.Size = UDim2.new(1, -24, 0, 70)
+    header.Position = UDim2.fromOffset(12, 8)
     header.Parent = holder
 
-    local title = createText(header, settings.Name, settings.TitleTextSize, settings.TextColor, settings.Font, Enum.TextXAlignment.Left)
-    title.Position = UDim2.fromOffset(18, 13)
-    title.Size = UDim2.new(1, -120, 0, 28)
+    local title = makeLabel(header, settings.Name, settings.TitleTextSize, settings.TextColor, settings.Font, Enum.TextXAlignment.Left)
+    title.Size = UDim2.new(1, -120, 0, 30)
+    title.Position = UDim2.fromOffset(8, 6)
 
-    local subtitle = createText(header, settings.Subtitle, settings.SmallTextSize, settings.SubTextColor, settings.Font, Enum.TextXAlignment.Left)
-    subtitle.Position = UDim2.fromOffset(18, 40)
-    subtitle.Size = UDim2.new(1, -120, 0, 20)
+    local subtitle = makeLabel(header, settings.Subtitle, settings.SmallTextSize, settings.SubTextColor, settings.Font, Enum.TextXAlignment.Left)
+    subtitle.Size = UDim2.new(1, -120, 0, 22)
+    subtitle.Position = UDim2.fromOffset(8, 34)
 
-    local closeBtn = makeButton(header)
-    closeBtn.Size = UDim2.fromOffset(36, 24)
-    closeBtn.Position = UDim2.new(1, -48, 0, 14)
+    local closeButton = makeButton(header)
+    closeButton.Size = UDim2.fromOffset(30, 30)
+    closeButton.Position = UDim2.new(1, -36, 0, 10)
+    pressAnimation(closeButton)
 
     local closeDot = Instance.new("Frame")
     closeDot.Size = UDim2.fromOffset(12, 12)
     closeDot.AnchorPoint = Vector2.new(0.5, 0.5)
     closeDot.Position = UDim2.fromScale(0.5, 0.5)
     closeDot.BackgroundColor3 = Color3.fromRGB(255, 59, 48)
-    closeDot.Parent = closeBtn
-    applyCorner(closeDot, 999)
+    closeDot.Parent = closeButton
+    makeCorner(closeDot, 999)
 
-    local tabsBar = Instance.new("Frame")
-    tabsBar.Name = "TabsBar"
-    tabsBar.Size = UDim2.new(1, -24, 0, 40)
-    tabsBar.Position = UDim2.fromOffset(12, 72)
-    tabsBar.BackgroundColor3 = settings.SurfaceColor
-    tabsBar.BackgroundTransparency = settings.SurfaceTransparency
-    tabsBar.Parent = holder
-    applyCorner(tabsBar, math.max(12, settings.CornerRadius - 6))
-    addStroke(tabsBar, settings.BorderColor, 0.35)
+    local tabsShell = Instance.new("Frame")
+    tabsShell.Name = "TabsShell"
+    tabsShell.Size = UDim2.new(1, -24, 0, 40)
+    tabsShell.Position = UDim2.fromOffset(12, 82)
+    tabsShell.BackgroundColor3 = settings.SurfaceColor
+    tabsShell.BackgroundTransparency = settings.SurfaceTransparency
+    tabsShell.Parent = holder
+    makeCorner(tabsShell, 14)
+    makeStroke(tabsShell, settings.BorderColor, 0.35)
+
+    local indicator = Instance.new("Frame")
+    indicator.Name = "Indicator"
+    indicator.BackgroundColor3 = settings.AccentColor
+    indicator.Size = UDim2.new(0, 0, 1, -8)
+    indicator.Position = UDim2.fromOffset(4, 4)
+    indicator.Parent = tabsShell
+    makeCorner(indicator, 11)
+
+    local tabsContainer = Instance.new("Frame")
+    tabsContainer.Name = "TabsContainer"
+    tabsContainer.BackgroundTransparency = 1
+    tabsContainer.Size = UDim2.new(1, -8, 1, -8)
+    tabsContainer.Position = UDim2.fromOffset(4, 4)
+    tabsContainer.Parent = tabsShell
 
     local tabsLayout = Instance.new("UIListLayout")
     tabsLayout.FillDirection = Enum.FillDirection.Horizontal
     tabsLayout.Padding = UDim.new(0, 6)
-    tabsLayout.Parent = tabsBar
-    addPadding(tabsBar, 6)
+    tabsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    tabsLayout.Parent = tabsContainer
 
     local pages = Instance.new("Frame")
     pages.Name = "Pages"
     pages.BackgroundTransparency = 1
-    pages.Position = UDim2.fromOffset(0, 116)
-    pages.Size = UDim2.new(1, 0, 1, -116)
+    pages.ClipsDescendants = true
+    pages.Size = UDim2.new(1, -24, 1, -134)
+    pages.Position = UDim2.fromOffset(12, 128)
     pages.Parent = holder
 
     self.Root = root
@@ -216,7 +233,9 @@ function iOSMenu.new(config)
     self.Header = header
     self.TitleLabel = title
     self.SubtitleLabel = subtitle
-    self.TabsBar = tabsBar
+    self.TabsShell = tabsShell
+    self.TabsContainer = tabsContainer
+    self.Indicator = indicator
     self.Pages = pages
 
     local dragStart, startPos
@@ -242,7 +261,7 @@ function iOSMenu.new(config)
         end))
     end
 
-    table.insert(self.Connections, closeBtn.MouseButton1Click:Connect(function()
+    table.insert(self.Connections, closeButton.MouseButton1Click:Connect(function()
         self:Toggle()
     end))
 
@@ -255,6 +274,13 @@ function iOSMenu.new(config)
         end
     end))
 
+    holder.Size = UDim2.fromOffset(settings.Width * 0.94, settings.Height * 0.94)
+    holder.BackgroundTransparency = 1
+    tween(holder, settings.AnimationSpeed, {
+        Size = UDim2.fromOffset(settings.Width, settings.Height),
+        BackgroundTransparency = settings.BackgroundTransparency,
+    }, Enum.EasingStyle.Back)
+
     return self
 end
 
@@ -262,19 +288,21 @@ function iOSMenu:SetVisible(state)
     self.Visible = state
     if state then
         self.Holder.Visible = true
-        self.Holder.Size = UDim2.fromOffset(self.Settings.Width * 0.92, self.Settings.Height * 0.92)
+        self.Holder.Size = UDim2.fromOffset(self.Settings.Width * 0.94, self.Settings.Height * 0.94)
         self.Holder.BackgroundTransparency = 1
         tween(self.Holder, self.Settings.AnimationSpeed, {
             Size = UDim2.fromOffset(self.Settings.Width, self.Settings.Height),
             BackgroundTransparency = self.Settings.BackgroundTransparency,
-        })
+        }, Enum.EasingStyle.Back)
     else
-        tween(self.Holder, self.Settings.AnimationSpeed, {
-            Size = UDim2.fromOffset(self.Settings.Width * 0.92, self.Settings.Height * 0.92),
+        tween(self.Holder, self.Settings.AnimationSpeed * 0.9, {
+            Size = UDim2.fromOffset(self.Settings.Width * 0.94, self.Settings.Height * 0.94),
             BackgroundTransparency = 1,
-        })
-        task.delay(self.Settings.AnimationSpeed, function()
-            self.Holder.Visible = false
+        }, Enum.EasingStyle.Quad)
+        task.delay(self.Settings.AnimationSpeed * 0.9, function()
+            if self.Holder then
+                self.Holder.Visible = false
+            end
         end)
     end
 end
@@ -288,112 +316,134 @@ function iOSMenu:SetTitle(name, subtitle)
     self.SubtitleLabel.Text = subtitle or self.SubtitleLabel.Text
 end
 
+function iOSMenu:_refreshTabs()
+    local count = #self.Tabs
+    if count == 0 then
+        self.Indicator.Size = UDim2.new(0, 0, 1, -8)
+        return
+    end
+
+    local gap = 6
+    local totalGap = (count - 1) * gap
+    local width = math.floor((self.TabsContainer.AbsoluteSize.X - totalGap) / count)
+
+    for index, tab in ipairs(self.Tabs) do
+        tab.Button.Size = UDim2.new(0, width, 1, 0)
+        tab.Index = index
+    end
+
+    if self.CurrentTab then
+        local x = (self.CurrentTab.Index - 1) * (width + gap)
+        tween(self.Indicator, 0.2, { Position = UDim2.fromOffset(x + 4, 4), Size = UDim2.new(0, width, 1, -8) }, Enum.EasingStyle.Quint)
+    end
+end
+
 function iOSMenu:AddTab(tabSettings)
     tabSettings = tabSettings or {}
+    local style = self.Settings
     local name = tabSettings.Name or ("Tab " .. tostring(#self.Tabs + 1))
-
-    local tabButton = makeButton(self.TabsBar)
-    tabButton.Size = UDim2.new(0, tabSettings.Width or 120, 1, 0)
-
-    local tabFill = Instance.new("Frame")
-    tabFill.Size = UDim2.new(1, 0, 1, 0)
-    tabFill.BackgroundColor3 = self.Settings.SurfaceColor
-    tabFill.Parent = tabButton
-    applyCorner(tabFill, 10)
-
-    local tabStroke = addStroke(tabFill, self.Settings.BorderColor, 0.35)
-
-    local tabText = createText(tabFill, name, self.Settings.NormalTextSize, self.Settings.SubTextColor, self.Settings.Font, Enum.TextXAlignment.Center)
-    tabText.Size = UDim2.new(1, -8, 1, 0)
-    tabText.Position = UDim2.fromOffset(4, 0)
 
     local page = Instance.new("ScrollingFrame")
     page.Name = name .. "Page"
-    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.ScrollBarThickness = 4
     page.CanvasSize = UDim2.fromOffset(0, 0)
     page.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    page.ScrollBarThickness = 4
-    page.BackgroundTransparency = 1
     page.Visible = false
+    page.Size = UDim2.fromScale(1, 1)
     page.Parent = self.Pages
-    addPadding(page, self.Settings.SafeAreaPadding)
+    makePadding(page, style.SafeAreaPadding)
 
     local pageLayout = Instance.new("UIListLayout")
     pageLayout.Padding = UDim.new(0, 8)
     pageLayout.Parent = page
 
+    local tabButton = makeButton(self.TabsContainer)
+    pressAnimation(tabButton)
+
+    local tabText = makeLabel(tabButton, name, style.NormalTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
+    tabText.Size = UDim2.fromScale(1, 1)
+
     local tab = {
         Name = name,
-        Settings = self.Settings,
         Button = tabButton,
-        Fill = tabFill,
-        Stroke = tabStroke,
         Label = tabText,
         Page = page,
-        Elements = {},
+        Settings = style,
+        Menu = self,
+        Index = #self.Tabs + 1,
     }
 
     function tab:SetActive(state)
         self.Page.Visible = state
-        tween(self.Fill, 0.15, { BackgroundColor3 = state and self.Settings.AccentColor or self.Settings.SurfaceColor })
-        tween(self.Label, 0.15, { TextColor3 = state and Color3.fromRGB(255, 255, 255) or self.Settings.SubTextColor })
-        self.Stroke.Transparency = state and 1 or 0.35
+        if state then
+            self.Page.CanvasPosition = Vector2.new(0, 0)
+            self.Page.Position = UDim2.fromOffset(16, 0)
+            self.Page.BackgroundTransparency = 1
+            tween(self.Page, 0.2, { Position = UDim2.fromOffset(0, 0), BackgroundTransparency = 0.999 }, Enum.EasingStyle.Quart)
+            tween(self.Label, 0.16, { TextColor3 = Color3.fromRGB(255, 255, 255) })
+        else
+            tween(self.Label, 0.16, { TextColor3 = self.Settings.SubTextColor })
+        end
     end
 
     function tab:AddSection(sectionSettings)
         sectionSettings = sectionSettings or {}
-        local style = self.Settings
+        local menuRef = self.Menu
         local section = Instance.new("Frame")
         section.BackgroundColor3 = style.SurfaceColor
         section.BackgroundTransparency = style.SurfaceTransparency
-        section.Size = UDim2.new(1, 0, 0, 44)
         section.AutomaticSize = Enum.AutomaticSize.Y
-        section.Parent = self.Page
-        applyCorner(section, math.max(12, style.CornerRadius - 6))
-        addStroke(section, style.BorderColor, 0.4)
-        addPadding(section, 10)
+        section.Size = UDim2.new(1, 0, 0, 44)
+        section.Parent = page
+        makeCorner(section, 14)
+        makeStroke(section, style.BorderColor, 0.38)
+        makePadding(section, 10)
 
-        local sectionLayout = Instance.new("UIListLayout")
-        sectionLayout.Padding = UDim.new(0, 8)
-        sectionLayout.Parent = section
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0, 8)
+        layout.Parent = section
 
-        local sectionTitle = createText(section, sectionSettings.Title or "Section", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-        sectionTitle.Size = UDim2.new(1, 0, 0, 20)
+        local title = makeLabel(section, sectionSettings.Title or "Section", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+        title.Size = UDim2.new(1, 0, 0, 20)
 
         if sectionSettings.Description then
-            local desc = createText(section, sectionSettings.Description, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
+            local desc = makeLabel(section, sectionSettings.Description, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
+            desc.Size = UDim2.new(1, 0, 0, 16)
             desc.TextWrapped = true
             desc.AutomaticSize = Enum.AutomaticSize.Y
-            desc.Size = UDim2.new(1, 0, 0, 16)
+        end
+
+        local function makeRow(height)
+            local row = Instance.new("Frame")
+            row.BackgroundColor3 = Color3.fromRGB(248, 248, 250)
+            row.Size = UDim2.new(1, 0, 0, height or style.ItemHeight)
+            row.Parent = section
+            makeCorner(row, 10)
+            makeStroke(row, style.BorderColor, 0.5)
+            return row
         end
 
         local api = {}
 
-        local function makeRow(height)
-            local row = Instance.new("Frame")
-            row.Size = UDim2.new(1, 0, 0, height or style.ItemHeight)
-            row.BackgroundColor3 = Color3.fromRGB(248, 248, 250)
-            row.Parent = section
-            applyCorner(row, 10)
-            addStroke(row, style.BorderColor, 0.5)
-            return row
-        end
-
         function api:AddButton(data)
             data = data or {}
             local row = makeRow(data.Height)
-            local btn = makeButton(row)
-            btn.Size = UDim2.fromScale(1, 1)
+            local button = makeButton(row)
+            button.Size = UDim2.fromScale(1, 1)
+            pressAnimation(button)
 
-            local text = createText(row, data.Text or "Button", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+            local text = makeLabel(row, data.Text or "Button", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+            text.Size = UDim2.new(1, -20, 1, 0)
             text.Position = UDim2.fromOffset(12, 0)
-            text.Size = UDim2.new(1, -24, 1, 0)
 
-            btn.MouseButton1Click:Connect(function()
+            button.MouseButton1Click:Connect(function()
                 if data.Callback then
                     data.Callback()
                 end
             end)
+
             return row
         end
 
@@ -401,37 +451,37 @@ function iOSMenu:AddTab(tabSettings)
             data = data or {}
             local state = data.Default or false
             local row = makeRow(data.Height)
-            local btn = makeButton(row)
-            btn.Size = UDim2.fromScale(1, 1)
+            local button = makeButton(row)
+            button.Size = UDim2.fromScale(1, 1)
 
-            local text = createText(row, data.Text or "Toggle", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-            text.Position = UDim2.fromOffset(12, 0)
+            local text = makeLabel(row, data.Text or "Toggle", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
             text.Size = UDim2.new(1, -76, 1, 0)
+            text.Position = UDim2.fromOffset(12, 0)
 
             local switch = Instance.new("Frame")
             switch.Size = UDim2.fromOffset(44, 24)
             switch.Position = UDim2.new(1, -56, 0.5, -12)
             switch.BackgroundColor3 = state and style.AccentColor or Color3.fromRGB(199, 199, 204)
             switch.Parent = row
-            applyCorner(switch, 999)
+            makeCorner(switch, 999)
 
             local knob = Instance.new("Frame")
             knob.Size = UDim2.fromOffset(20, 20)
             knob.Position = state and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2)
             knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             knob.Parent = switch
-            applyCorner(knob, 999)
+            makeCorner(knob, 999)
 
-            local function setState(newState)
-                state = newState
-                tween(switch, 0.12, { BackgroundColor3 = state and style.AccentColor or Color3.fromRGB(199, 199, 204) })
-                tween(knob, 0.12, { Position = state and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2) })
+            local function setState(nextState)
+                state = nextState
+                tween(switch, 0.16, { BackgroundColor3 = state and style.AccentColor or Color3.fromRGB(199, 199, 204) }, Enum.EasingStyle.Quint)
+                tween(knob, 0.16, { Position = state and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2) }, Enum.EasingStyle.Quint)
                 if data.Callback then
                     data.Callback(state)
                 end
             end
 
-            btn.MouseButton1Click:Connect(function()
+            button.MouseButton1Click:Connect(function()
                 setState(not state)
             end)
 
@@ -445,64 +495,71 @@ function iOSMenu:AddTab(tabSettings)
             data = data or {}
             local min = data.Min or 0
             local max = data.Max or 100
-            local value = math.clamp(data.Default or min, min, max)
             local step = data.Step or 1
             if step <= 0 then
                 step = 1
             end
+            local value = math.clamp(data.Default or min, min, max)
             local dragging = false
 
-            local row = makeRow(math.max(data.Height or 58, 58))
-            local text = createText(row, data.Text or "Slider", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-            text.Position = UDim2.fromOffset(12, 6)
-            text.Size = UDim2.new(1, -84, 0, 18)
+            local row = makeRow(math.max(58, data.Height or 58))
 
-            local valueLabel = createText(row, tostring(value), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
-            valueLabel.Position = UDim2.new(1, -68, 0, 8)
+            local text = makeLabel(row, data.Text or "Slider", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+            text.Size = UDim2.new(1, -84, 0, 20)
+            text.Position = UDim2.fromOffset(12, 6)
+
+            local valueLabel = makeLabel(row, tostring(value), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
             valueLabel.Size = UDim2.fromOffset(56, 14)
+            valueLabel.Position = UDim2.new(1, -68, 0, 8)
 
             local bar = Instance.new("Frame")
             bar.Size = UDim2.new(1, -24, 0, 8)
             bar.Position = UDim2.fromOffset(12, 36)
             bar.BackgroundColor3 = Color3.fromRGB(209, 209, 214)
             bar.Parent = row
-            applyCorner(bar, 999)
+            makeCorner(bar, 999)
 
             local fill = Instance.new("Frame")
-            local range = math.max(max - min, 1)
-            fill.Size = UDim2.new((value - min) / range, 0, 1, 0)
             fill.BackgroundColor3 = style.AccentColor
             fill.Parent = bar
-            applyCorner(fill, 999)
+            makeCorner(fill, 999)
 
-            local input = makeButton(bar)
-            input.Size = UDim2.fromScale(1, 1)
+            local function render(v)
+                local range = math.max(max - min, 1)
+                fill.Size = UDim2.new((v - min) / range, 0, 1, 0)
+                valueLabel.Text = tostring(v)
+            end
 
             local function setValue(raw)
-                local normalized = min + math.floor(((raw - min) / step) + 0.5) * step
-                value = math.clamp(normalized, min, max)
-                local range = math.max(max - min, 1)
-                fill.Size = UDim2.new((value - min) / range, 0, 1, 0)
-                valueLabel.Text = tostring(value)
+                local rounded = min + math.floor(((raw - min) / step) + 0.5) * step
+                value = math.clamp(rounded, min, max)
+                render(value)
                 if data.Callback then
                     data.Callback(value)
                 end
             end
 
+            local input = makeButton(bar)
+            input.Size = UDim2.fromScale(1, 1)
+
             input.MouseButton1Down:Connect(function()
                 dragging = true
             end)
-            UserInputService.InputEnded:Connect(function(i)
+
+            table.insert(menuRef.Connections, UserInputService.InputChanged:Connect(function(i)
+                if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+                    local alpha = math.clamp((i.Position.X - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
+                    setValue(min + (max - min) * alpha)
+                end
+            end))
+
+            table.insert(menuRef.Connections, UserInputService.InputEnded:Connect(function(i)
                 if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
                     dragging = false
                 end
-            end)
-            UserInputService.InputChanged:Connect(function(i)
-                if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-                    local alpha = math.clamp((i.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-                    setValue(min + (max - min) * alpha)
-                end
-            end)
+            end))
+
+            render(value)
 
             return {
                 Set = setValue,
@@ -514,58 +571,76 @@ function iOSMenu:AddTab(tabSettings)
             data = data or {}
             local options = data.Options or {}
             local selected = data.Default or options[1] or "None"
+            local expanded = false
 
             local row = makeRow(data.Height)
-            local btn = makeButton(row)
-            btn.Size = UDim2.fromScale(1, 1)
+            row.AutomaticSize = Enum.AutomaticSize.Y
 
-            local titleRow = createText(row, data.Text or "Dropdown", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-            titleRow.Position = UDim2.fromOffset(12, 0)
-            titleRow.Size = UDim2.new(0.5, 0, 1, 0)
+            local hit = makeButton(row)
+            hit.Size = UDim2.new(1, 0, 0, style.ItemHeight)
+            pressAnimation(hit)
 
-            local valueLabel = createText(row, tostring(selected), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
-            valueLabel.Position = UDim2.new(1, -130, 0, 0)
-            valueLabel.Size = UDim2.new(0, 102, 1, 0)
+            local title = makeLabel(row, data.Text or "Dropdown", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+            title.Size = UDim2.new(0.55, 0, 0, style.ItemHeight)
+            title.Position = UDim2.fromOffset(12, 0)
+
+            local valueLabel = makeLabel(row, tostring(selected), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
+            valueLabel.Size = UDim2.new(0.4, -14, 0, style.ItemHeight)
+            valueLabel.Position = UDim2.new(0.6, 0, 0, 0)
 
             local menu = Instance.new("Frame")
-            menu.Visible = false
-            menu.Size = UDim2.new(1, 0, 0, #options * 30 + 8)
-            menu.BackgroundColor3 = Color3.fromRGB(245, 245, 247)
-            menu.Parent = section
-            applyCorner(menu, 10)
-            addStroke(menu, style.BorderColor, 0.45)
-            addPadding(menu, 4)
+            menu.BackgroundTransparency = 1
+            menu.Size = UDim2.new(1, -12, 0, 0)
+            menu.Position = UDim2.fromOffset(6, style.ItemHeight)
+            menu.ClipsDescendants = true
+            menu.Parent = row
 
             local menuLayout = Instance.new("UIListLayout")
             menuLayout.Padding = UDim.new(0, 4)
             menuLayout.Parent = menu
 
+            local optionsHeight = 0
             for _, option in ipairs(options) do
-                local optionBtn = makeButton(menu)
-                optionBtn.Size = UDim2.new(1, 0, 0, 26)
-                local optionText = createText(optionBtn, tostring(option), style.SmallTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+                local optionButton = makeButton(menu)
+                optionButton.Size = UDim2.new(1, 0, 0, 26)
+                local optionText = makeLabel(optionButton, tostring(option), style.SmallTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
                 optionText.Size = UDim2.new(1, -12, 1, 0)
-                optionText.Position = UDim2.fromOffset(6, 0)
-                optionBtn.MouseButton1Click:Connect(function()
+                optionText.Position = UDim2.fromOffset(8, 0)
+
+                optionButton.MouseButton1Click:Connect(function()
                     selected = option
                     valueLabel.Text = tostring(option)
-                    menu.Visible = false
+                    expanded = false
+                    tween(menu, 0.18, { Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
                     if data.Callback then
                         data.Callback(option)
                     end
                 end)
+                optionsHeight = optionsHeight + 30
             end
 
-            btn.MouseButton1Click:Connect(function()
-                menu.Visible = not menu.Visible
+            local shellCorner = makeCorner(menu, 10)
+            local shellStroke = makeStroke(menu, style.BorderColor, 0.5)
+            shellCorner.Parent = menu
+            shellStroke.Parent = menu
+
+            hit.MouseButton1Click:Connect(function()
+                expanded = not expanded
+                if expanded then
+                    tween(menu, 0.18, { Size = UDim2.new(1, -12, 0, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
+                else
+                    tween(menu, 0.18, { Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
+                end
             end)
 
             return {
-                Set = function(v)
-                    selected = v
-                    valueLabel.Text = tostring(v)
+                Set = function(value)
+                    selected = value
+                    valueLabel.Text = tostring(value)
                 end,
-                Get = function() return selected end,
+                Get = function()
+                    return selected
+                end,
             }
         end
 
@@ -578,8 +653,8 @@ function iOSMenu:AddTab(tabSettings)
             box.Position = UDim2.fromOffset(10, 0)
             box.BackgroundTransparency = 1
             box.ClearTextOnFocus = false
-            box.PlaceholderText = data.Placeholder or "Input"
             box.Text = data.Default or ""
+            box.PlaceholderText = data.Placeholder or "Input"
             box.TextColor3 = style.TextColor
             box.PlaceholderColor3 = style.SubTextColor
             box.TextSize = style.NormalTextSize
@@ -587,23 +662,31 @@ function iOSMenu:AddTab(tabSettings)
             box.Font = style.Font
             box.Parent = row
 
+            box.Focused:Connect(function()
+                tween(row, 0.16, { BackgroundColor3 = Color3.fromRGB(241, 246, 255) }, Enum.EasingStyle.Quint)
+            end)
             box.FocusLost:Connect(function(enterPressed)
+                tween(row, 0.16, { BackgroundColor3 = Color3.fromRGB(248, 248, 250) }, Enum.EasingStyle.Quint)
                 if data.Callback then
                     data.Callback(box.Text, enterPressed)
                 end
             end)
 
             return {
-                Set = function(v) box.Text = tostring(v) end,
-                Get = function() return box.Text end,
+                Set = function(v)
+                    box.Text = tostring(v)
+                end,
+                Get = function()
+                    return box.Text
+                end,
             }
         end
 
         function api:AddLabel(text)
             local row = makeRow(32)
             row.BackgroundTransparency = 1
-            local label = createText(row, text or "Label", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
-            label.Size = UDim2.new(1, -8, 1, 0)
+            local label = makeLabel(row, text or "Label", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
+            label.Size = UDim2.new(1, -10, 1, 0)
             label.Position = UDim2.fromOffset(8, 0)
             return label
         end
@@ -612,28 +695,41 @@ function iOSMenu:AddTab(tabSettings)
             local line = Instance.new("Frame")
             line.Size = UDim2.new(1, 0, 0, 1)
             line.BackgroundColor3 = style.BorderColor
-            line.BackgroundTransparency = 0.5
+            line.BackgroundTransparency = 0.45
             line.Parent = section
             return line
         end
+
+        section.Position = UDim2.fromOffset(0, 8)
+        section.BackgroundTransparency = 1
+        tween(section, 0.22, { Position = UDim2.fromOffset(0, 0), BackgroundTransparency = style.SurfaceTransparency }, Enum.EasingStyle.Quart)
 
         return api
     end
 
     tabButton.MouseButton1Click:Connect(function()
-        for _, t in ipairs(self.Tabs) do
-            t:SetActive(false)
+        for _, existing in ipairs(self.Tabs) do
+            existing:SetActive(false)
         end
-        tab:SetActive(true)
         self.CurrentTab = tab
+        tab:SetActive(true)
+        self:_refreshTabs()
     end)
 
     table.insert(self.Tabs, tab)
+    self:_refreshTabs()
+
     if #self.Tabs == 1 then
-        tab:SetActive(true)
         self.CurrentTab = tab
-    else
-        tab:SetActive(false)
+        tab:SetActive(true)
+        self:_refreshTabs()
+    end
+
+    if not self._tabsResizeConnection then
+        self._tabsResizeConnection = self.TabsContainer:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+            self:_refreshTabs()
+        end)
+        table.insert(self.Connections, self._tabsResizeConnection)
     end
 
     return tab
