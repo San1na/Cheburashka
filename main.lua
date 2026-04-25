@@ -1,4 +1,4 @@
---2
+--6
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -99,28 +99,52 @@ local function tween(instance, speed, props, easingStyle, easingDirection)
     return tw
 end
 
-local function tweenDescendants(root, speed, props)
+local function tweenDescendants(root, speed, mode)
     for _, obj in ipairs(root:GetDescendants()) do
-        if obj:IsA("UIStroke") or obj:IsA("UICorner") or obj:IsA("UIListLayout") then
+        if obj:IsA("UICorner") or obj:IsA("UIListLayout") then
             continue
         end
 
+        -- TEXT
         if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-            if props.TextTransparency then
-                tween(obj, speed, { TextTransparency = props.TextTransparency })
-            end
+            tween(obj, speed, {
+                TextTransparency = (mode == "hide") and 1 or 0
+            })
         end
 
+        -- BACKGROUND
         if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-            if props.BackgroundTransparency then
-                tween(obj, speed, { BackgroundTransparency = props.BackgroundTransparency })
-            end
+            local target = (mode == "hide") and 1 or (obj:GetAttribute("OrigBG") or obj.BackgroundTransparency)
+            tween(obj, speed, {
+                BackgroundTransparency = target
+            })
         end
 
+        -- IMAGE
         if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-            if props.ImageTransparency then
-                tween(obj, speed, { ImageTransparency = props.ImageTransparency })
-            end
+            tween(obj, speed, {
+                ImageTransparency = (mode == "hide") and 1 or 0
+            })
+        end
+
+        -- STROKE (ВОТ ЭТО ТЕБЕ НЕ ХВАТАЛО)
+        if obj:IsA("UIStroke") then
+            local target = (mode == "hide") and 1 or (obj:GetAttribute("OrigStroke") or obj.Transparency)
+            tween(obj, speed, {
+                Transparency = target
+            })
+        end
+    end
+end
+
+local function cacheOriginalTransparency(root)
+    for _, obj in ipairs(root:GetDescendants()) do
+        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+            obj:SetAttribute("OrigBG", obj.BackgroundTransparency)
+        end
+
+        if obj:IsA("UIStroke") then
+            obj:SetAttribute("OrigStroke", obj.Transparency)
         end
     end
 end
@@ -205,11 +229,13 @@ function iOSMenu.new(config)
     holder.BackgroundTransparency = settings.BackgroundTransparency
     holder.ClipsDescendants = true
     holder.Parent = root
+    
     local holderScale = Instance.new("UIScale")
     holderScale.Scale = 1
     holderScale.Parent = holder
     makeCorner(holder, settings.CornerRadius)
     makeStroke(holder, settings.BorderColor, 0.12)
+    cacheOriginalTransparency(holder)
 
     local contentGroup = Instance.new("Frame")
     contentGroup.Name = "ContentGroup"
@@ -356,6 +382,10 @@ function iOSMenu.new(config)
     tween(contentGroup, settings.AnimationSpeed, { Position = UDim2.fromOffset(0, 0) }, Enum.EasingStyle.Quint)
     tween(contentScale, settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Quint)
 
+    task.defer(function()
+    cacheOriginalTransparency(holder)
+end)
+
     return self
 end
 
@@ -375,11 +405,7 @@ function iOSMenu:SetVisible(state)
         self.Holder.BackgroundTransparency = 1
 
         -- скрываем весь контент перед анимацией
-        tweenDescendants(self.Holder, 0, {
-            BackgroundTransparency = 1,
-            TextTransparency = 1,
-            ImageTransparency = 1
-        })
+        tweenDescendants(self.Holder, 0, "hide")
 
         -- анимация появления
         tween(self.Holder, self.Settings.AnimationSpeed, {
@@ -400,21 +426,13 @@ function iOSMenu:SetVisible(state)
         }, Enum.EasingStyle.Quint)
 
         -- плавно показываем весь UI
-        tweenDescendants(self.Holder, self.Settings.AnimationSpeed, {
-            BackgroundTransparency = 0,
-            TextTransparency = 0,
-            ImageTransparency = 0
-        })
+        tweenDescendants(self.Holder, self.Settings.AnimationSpeed, "show")
 
     else
         local hideDuration = self.Settings.AnimationSpeed * 0.9
 
         -- плавно скрываем ВСЁ
-        tweenDescendants(self.Holder, hideDuration, {
-            BackgroundTransparency = 1,
-            TextTransparency = 1,
-            ImageTransparency = 1
-        })
+        tweenDescendants(self.Holder, hideDuration, "hide")
 
         tween(self.Holder, hideDuration, {
             Size = UDim2.fromOffset(self.Settings.Width * 0.94, self.Settings.Height * 0.94),
