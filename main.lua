@@ -1,4 +1,5 @@
--- 54
+-- 42 
+-- 42
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -603,44 +604,32 @@ function iOSMenu:AddTab(tabSettings)
         function api:AddToggle(data)
             data = data or {}
             local state = data.Default or false
-            local activeColor = data.Color or Color3.fromRGB(168, 85, 247)
-            local inactiveColor = Color3.fromRGB(122, 124, 132)
             local row = makeRow(data.Height)
             local button = makeButton(row)
             button.Size = UDim2.fromScale(1, 1)
-            pressAnimation(button)
 
             local text = makeLabel(row, data.Text or "Toggle", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
             text.Size = UDim2.new(1, -76, 1, 0)
             text.Position = UDim2.fromOffset(12, 0)
 
             local switch = Instance.new("Frame")
-            switch.Size = UDim2.fromOffset(34, 18)
-            switch.Position = UDim2.new(1, -48, 0.5, -9)
-            switch.BackgroundColor3 = Color3.fromRGB(28, 29, 34)
-            switch.BackgroundTransparency = 0
+            switch.Size = UDim2.fromOffset(44, 24)
+            switch.Position = UDim2.new(1, -56, 0.5, -12)
+            switch.BackgroundColor3 = state and style.AccentColor or Color3.fromRGB(199, 199, 204)
             switch.Parent = row
             makeCorner(switch, 999)
-            local switchStroke = makeStroke(switch, state and activeColor or inactiveColor, 0)
-            switchStroke.Thickness = 2
 
             local knob = Instance.new("Frame")
-            knob.Size = UDim2.fromOffset(10, 10)
-            knob.Position = state and UDim2.fromOffset(21, 4) or UDim2.fromOffset(3, 4)
-            knob.BackgroundColor3 = state and activeColor or inactiveColor
+            knob.Size = UDim2.fromOffset(20, 20)
+            knob.Position = state and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2)
+            knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             knob.Parent = switch
             makeCorner(knob, 999)
 
-            local knobStroke = makeStroke(knob, Color3.fromRGB(12, 12, 14), 0.55)
-            knobStroke.Thickness = 1
-
             local function setState(nextState)
                 state = nextState
-                tween(switchStroke, 0.16, { Color = state and activeColor or inactiveColor }, Enum.EasingStyle.Quint)
-                tween(knob, 0.16, {
-                    Position = state and UDim2.fromOffset(21, 4) or UDim2.fromOffset(3, 4),
-                    BackgroundColor3 = state and activeColor or inactiveColor,
-                }, Enum.EasingStyle.Quint)
+                tween(switch, 0.16, { BackgroundColor3 = state and style.AccentColor or Color3.fromRGB(199, 199, 204) }, Enum.EasingStyle.Quint)
+                tween(knob, 0.16, { Position = state and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2) }, Enum.EasingStyle.Quint)
                 if data.Callback then
                     data.Callback(state)
                 end
