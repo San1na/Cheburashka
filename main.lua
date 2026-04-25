@@ -1,4 +1,4 @@
---6
+--2
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -100,39 +100,29 @@ local function tween(instance, speed, props, easingStyle, easingDirection)
 end
 
 local function tweenDescendants(root, speed, mode)
+    if not root then return end
+
     for _, obj in ipairs(root:GetDescendants()) do
-        if obj:IsA("UICorner") or obj:IsA("UIListLayout") then
+        if obj:IsA("UICorner") or obj:IsA("UIListLayout") or obj:IsA("UIPadding") or obj:IsA("UIGradient") then
             continue
         end
 
-        -- TEXT
         if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-            tween(obj, speed, {
-                TextTransparency = (mode == "hide") and 1 or 0
-            })
+            tween(obj, speed, { TextTransparency = (mode == "hide") and 1 or 0 })
         end
 
-        -- BACKGROUND
         if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-            local target = (mode == "hide") and 1 or (obj:GetAttribute("OrigBG") or obj.BackgroundTransparency)
-            tween(obj, speed, {
-                BackgroundTransparency = target
-            })
+            local target = (mode == "hide") and 1 or (obj:GetAttribute("OrigBG") or 0)
+            tween(obj, speed, { BackgroundTransparency = target })
         end
 
-        -- IMAGE
         if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-            tween(obj, speed, {
-                ImageTransparency = (mode == "hide") and 1 or 0
-            })
+            tween(obj, speed, { ImageTransparency = (mode == "hide") and 1 or 0 })
         end
 
-        -- STROKE (ВОТ ЭТО ТЕБЕ НЕ ХВАТАЛО)
         if obj:IsA("UIStroke") then
-            local target = (mode == "hide") and 1 or (obj:GetAttribute("OrigStroke") or obj.Transparency)
-            tween(obj, speed, {
-                Transparency = target
-            })
+            local target = (mode == "hide") and 1 or (obj:GetAttribute("OrigStroke") or 0)
+            tween(obj, speed, { Transparency = target })
         end
     end
 end
@@ -997,52 +987,35 @@ local function openPopup()
     end
 
     updatePopupPosition()
-
     popup.Visible = true
     popup.BackgroundTransparency = 1
     popupStroke.Transparency = 1
     popupScale.Scale = 0.96
 
-    resetDescendants(popup)
-
+    tweenDescendants(popup, 0, "hide")
     tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
     tween(popup, 0.16, { BackgroundTransparency = 0.04 }, Enum.EasingStyle.Quint)
     tween(popupStroke, 0.16, { Transparency = 0.35 }, Enum.EasingStyle.Quint)
-
-    tweenDescendants(popup, 0.16, {
-        BackgroundTransparency = 0,
-        TextTransparency = 0,
-        ImageTransparency = 0
-    })
+    tweenDescendants(popup, 0.16, "show")
 
     isOpen = true
 end
 
-            local function closePopup()
-                if not isOpen then
-                    return
-                end
-                isOpen = false
-tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
-tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
-tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
+local function closePopup()
+    if not isOpen then return end
+    isOpen = false
 
-tweenDescendants(popup, 0.12, {
-    BackgroundTransparency = 1,
-    TextTransparency = 1,
-    ImageTransparency = 1
-})
-    tweenDescendants(self.Holder, hideDuration, {
-    BackgroundTransparency = 1,
-    TextTransparency = 1,
-    ImageTransparency = 1
-})
-                task.delay(0.12, function()
-                    if popup and popup.Parent and not isOpen then
-                        popup.Visible = false
-                    end
-                end)
-            end
+    tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
+    tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+    tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
+    tweenDescendants(popup, 0.12, "hide")
+
+    task.delay(0.12, function()
+        if popup and popup.Parent and not isOpen then
+            popup.Visible = false
+        end
+    end)
+end
 
             popupApi = {}
             popupApi.Instance = popup
