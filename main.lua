@@ -1,4 +1,4 @@
--- 54
+-- 52
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -832,6 +832,191 @@ function iOSMenu:AddTab(tabSettings)
                 end,
                 Get = function()
                     return selected
+                end,
+            }
+        end
+
+        function api:AddMultiBoolean(data)
+            data = data or {}
+            local options = data.Options or {}
+            local states = {}
+            local expanded = false
+
+            local row = makeRow(data.Height)
+            row.AutomaticSize = Enum.AutomaticSize.Y
+
+            local hit = makeButton(row)
+            hit.Size = UDim2.new(1, 0, 0, style.ItemHeight)
+            pressAnimation(hit)
+
+            local title = makeLabel(row, data.Text or "MultiBoolean", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+            title.Size = UDim2.new(0.55, 0, 0, style.ItemHeight)
+            title.Position = UDim2.fromOffset(12, 0)
+
+            local valueLabel = makeLabel(row, "None", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
+            valueLabel.Size = UDim2.new(0.4, -14, 0, style.ItemHeight)
+            valueLabel.Position = UDim2.new(0.6, 0, 0, 0)
+
+            local menu = Instance.new("Frame")
+            menu.BackgroundTransparency = 1
+            menu.Size = UDim2.new(1, -12, 0, 0)
+            menu.Position = UDim2.fromOffset(6, style.ItemHeight)
+            menu.ClipsDescendants = true
+            menu.Parent = row
+
+            local menuLayout = Instance.new("UIListLayout")
+            menuLayout.Padding = UDim.new(0, 4)
+            menuLayout.Parent = menu
+
+            makeCorner(menu, 10)
+            makeStroke(menu, style.BorderColor, 0.5)
+
+            local optionRows = {}
+            local optionsHeight = 0
+
+            local function updateSummary()
+                local active = {}
+                for name, enabled in pairs(states) do
+                    if enabled then
+                        table.insert(active, name)
+                    end
+                end
+
+                table.sort(active)
+
+                if #active == 0 then
+                    valueLabel.Text = "None"
+                elseif #active == 1 then
+                    valueLabel.Text = active[1]
+                else
+                    valueLabel.Text = tostring(#active) .. " selected"
+                end
+            end
+
+            local function updateOptionVisual(option)
+                local ref = optionRows[option]
+                if not ref then
+                    return
+                end
+
+                local enabled = states[option] == true
+                tween(ref.Dot, 0.12, { BackgroundTransparency = enabled and 0 or 1 }, Enum.EasingStyle.Quint)
+                tween(ref.Text, 0.12, { TextColor3 = enabled and style.TextColor or style.SubTextColor }, Enum.EasingStyle.Quint)
+            end
+
+            local function setOption(option, newState, silent)
+                option = tostring(option)
+                if states[option] == nil then
+                    return
+                end
+
+                states[option] = newState and true or false
+                updateOptionVisual(option)
+                updateSummary()
+
+                if not silent and data.Callback then
+                    data.Callback(option, states[option], states)
+                end
+            end
+
+            local function clearOptions()
+                for option, ref in pairs(optionRows) do
+                    if ref.Button then
+                        ref.Button:Destroy()
+                    end
+                    optionRows[option] = nil
+                end
+
+                for option in pairs(states) do
+                    states[option] = nil
+                end
+
+                optionsHeight = 0
+            end
+
+            local function rebuild(newOptions, defaults)
+                clearOptions()
+
+                local seen = {}
+                for _, option in ipairs(newOptions or {}) do
+                    local optionName = tostring(option)
+                    if not seen[optionName] then
+                        seen[optionName] = true
+
+                        local optionButton = makeButton(menu)
+                        optionButton.Size = UDim2.new(1, 0, 0, 26)
+
+                        local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
+                        optionText.Size = UDim2.new(1, -28, 1, 0)
+                        optionText.Position = UDim2.fromOffset(8, 0)
+
+                        local dot = Instance.new("Frame")
+                        dot.Size = UDim2.fromOffset(12, 12)
+                        dot.Position = UDim2.new(1, -18, 0.5, -6)
+                        dot.BackgroundColor3 = style.AccentColor
+                        dot.BackgroundTransparency = 1
+                        dot.Parent = optionButton
+                        makeCorner(dot, 999)
+
+                        states[optionName] = typeof(defaults) == "table" and (defaults[optionName] == true) or false
+
+                        optionRows[optionName] = {
+                            Button = optionButton,
+                            Text = optionText,
+                            Dot = dot,
+                        }
+
+                        optionButton.MouseButton1Click:Connect(function()
+                            setOption(optionName, not states[optionName], false)
+                        end)
+
+                        optionsHeight = optionsHeight + 30
+                    end
+                end
+
+                if expanded then
+                    menu.Size = UDim2.new(1, -12, 0, optionsHeight)
+                    menu.BackgroundTransparency = 0
+                else
+                    menu.Size = UDim2.new(1, -12, 0, 0)
+                    menu.BackgroundTransparency = 1
+                end
+
+                for optionName in pairs(optionRows) do
+                    updateOptionVisual(optionName)
+                end
+                updateSummary()
+                cacheOriginalTransparency(row)
+            end
+
+            hit.MouseButton1Click:Connect(function()
+                expanded = not expanded
+                if expanded then
+                    tween(menu, 0.18, { Size = UDim2.new(1, -12, 0, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
+                else
+                    tween(menu, 0.18, { Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
+                end
+            end)
+
+            rebuild(options, data.Default)
+
+            return {
+                Set = function(option, newState, silent)
+                    setOption(option, newState, silent)
+                end,
+                Get = function(option)
+                    if option ~= nil then
+                        return states[tostring(option)] == true
+                    end
+
+                    local out = {}
+                    for k, v in pairs(states) do
+                        out[k] = v
+                    end
+                    return out
+                end,
+                SetOptions = function(newOptions, defaults)
+                    rebuild(newOptions, defaults)
                 end,
             }
         end
