@@ -1,4 +1,3 @@
--- 22
 local HttpService = game:GetService("HttpService")
 
 local ConfigSys = {}
@@ -254,22 +253,56 @@ function ConfigSys:ListConfigs()
         end
     end
 
-    if typeof(listfiles) == "function" then
-        local ok, files = pcall(function()
-            return listfiles(self.FolderName)
-        end)
+    local function collectFromFileList(files)
+        if typeof(files) ~= "table" then
+            return
+        end
 
-        if ok and typeof(files) == "table" then
-            for _, filePath in ipairs(files) do
-                local fileName = filePath:match("[^/\\]+$") or filePath
-                if fileName:sub(-#self.FileExtension) == self.FileExtension then
-                    local cfgName = fileName:sub(1, #fileName - #self.FileExtension)
-                    if cfgName ~= "_manifest" and not seen[cfgName] then
-                        seen[cfgName] = true
-                        table.insert(out, cfgName)
-                    end
+        for _, filePath in ipairs(files) do
+            local fileName = filePath:match("[^/\\]+$") or filePath
+            if fileName:sub(-#self.FileExtension) == self.FileExtension then
+                local cfgName = fileName:sub(1, #fileName - #self.FileExtension)
+                if cfgName ~= "_manifest" and not seen[cfgName] then
+                    seen[cfgName] = true
+                    table.insert(out, cfgName)
                 end
             end
+        end
+    end
+
+    if typeof(listfiles) == "function" then
+        local tried = {
+            self.FolderName,
+            self.FolderName .. "/",
+            "./" .. self.FolderName,
+            "./" .. self.FolderName .. "/",
+        }
+
+        for _, path in ipairs(tried) do
+            local ok, files = pcall(function()
+                return listfiles(path)
+            end)
+            if ok then
+                collectFromFileList(files)
+            end
+        end
+
+        -- Some executors only support listfiles("") and return absolute/relative paths for all files.
+        local okRoot, rootFiles = pcall(function()
+            return listfiles("")
+        end)
+        if okRoot and typeof(rootFiles) == "table" then
+            local folderNeedleA = self.FolderName .. "/"
+            local folderNeedleB = self.FolderName .. "\\"
+
+            local filtered = {}
+            for _, filePath in ipairs(rootFiles) do
+                local normalized = tostring(filePath)
+                if normalized:find(folderNeedleA, 1, true) or normalized:find(folderNeedleB, 1, true) then
+                    table.insert(filtered, normalized)
+                end
+            end
+            collectFromFileList(filtered)
         end
     end
 
