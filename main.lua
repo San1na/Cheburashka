@@ -1,4 +1,4 @@
---2
+-- 42
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -100,7 +100,9 @@ local function tween(instance, speed, props, easingStyle, easingDirection)
 end
 
 local function tweenDescendants(root, speed, mode)
-    if not root then return end
+    if not root then
+        return
+    end
 
     for _, obj in ipairs(root:GetDescendants()) do
         if obj:IsA("UICorner") or obj:IsA("UIListLayout") or obj:IsA("UIPadding") or obj:IsA("UIGradient") then
@@ -111,7 +113,7 @@ local function tweenDescendants(root, speed, mode)
             tween(obj, speed, { TextTransparency = (mode == "hide") and 1 or 0 })
         end
 
-        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") or obj:IsA("ScrollingFrame") then
             local target = (mode == "hide") and 1 or (obj:GetAttribute("OrigBG") or 0)
             tween(obj, speed, { BackgroundTransparency = target })
         end
@@ -128,8 +130,12 @@ local function tweenDescendants(root, speed, mode)
 end
 
 local function cacheOriginalTransparency(root)
+    if not root then
+        return
+    end
+
     for _, obj in ipairs(root:GetDescendants()) do
-        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") or obj:IsA("ScrollingFrame") then
             obj:SetAttribute("OrigBG", obj.BackgroundTransparency)
         end
 
@@ -219,7 +225,7 @@ function iOSMenu.new(config)
     holder.BackgroundTransparency = settings.BackgroundTransparency
     holder.ClipsDescendants = true
     holder.Parent = root
-    
+
     local holderScale = Instance.new("UIScale")
     holderScale.Scale = 1
     holderScale.Parent = holder
@@ -373,8 +379,8 @@ function iOSMenu.new(config)
     tween(contentScale, settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Quint)
 
     task.defer(function()
-    cacheOriginalTransparency(holder)
-end)
+        cacheOriginalTransparency(holder)
+    end)
 
     return self
 end
@@ -387,41 +393,41 @@ function iOSMenu:SetVisible(state)
     if state then
         self.Holder.Visible = true
 
-        -- стартовое состояние
         self.ContentGroup.Position = UDim2.fromOffset(0, 8)
         self.ContentScale.Scale = 0.985
         self.Holder.Size = UDim2.fromOffset(self.Settings.Width * 0.94, self.Settings.Height * 0.94)
         self.HolderScale.Scale = 0.97
         self.Holder.BackgroundTransparency = 1
 
-        -- скрываем весь контент перед анимацией
         tweenDescendants(self.Holder, 0, "hide")
 
-        -- анимация появления
         tween(self.Holder, self.Settings.AnimationSpeed, {
             Size = UDim2.fromOffset(self.Settings.Width, self.Settings.Height),
             BackgroundTransparency = self.Settings.BackgroundTransparency,
         }, Enum.EasingStyle.Back)
 
         tween(self.HolderScale, self.Settings.AnimationSpeed, {
-            Scale = 1
+            Scale = 1,
         }, Enum.EasingStyle.Back)
 
         tween(self.ContentGroup, self.Settings.AnimationSpeed, {
-            Position = UDim2.fromOffset(0, 0)
+            Position = UDim2.fromOffset(0, 0),
         }, Enum.EasingStyle.Quint)
 
         tween(self.ContentScale, self.Settings.AnimationSpeed, {
-            Scale = 1
+            Scale = 1,
         }, Enum.EasingStyle.Quint)
 
-        -- плавно показываем весь UI
         tweenDescendants(self.Holder, self.Settings.AnimationSpeed, "show")
-
     else
         local hideDuration = self.Settings.AnimationSpeed * 0.9
 
-        -- плавно скрываем ВСЁ
+        for _, popupRef in ipairs(self._colorPopups) do
+            if popupRef and popupRef.CloseInstant then
+                popupRef:CloseInstant()
+            end
+        end
+
         tweenDescendants(self.Holder, hideDuration, "hide")
 
         tween(self.Holder, hideDuration, {
@@ -430,19 +436,21 @@ function iOSMenu:SetVisible(state)
         }, Enum.EasingStyle.Quad)
 
         tween(self.HolderScale, hideDuration, {
-            Scale = 0.97
+            Scale = 0.97,
         }, Enum.EasingStyle.Quad)
 
         tween(self.ContentGroup, hideDuration, {
-            Position = UDim2.fromOffset(0, 8)
+            Position = UDim2.fromOffset(0, 8),
         }, Enum.EasingStyle.Quint)
 
         tween(self.ContentScale, hideDuration, {
-            Scale = 0.985
+            Scale = 0.985,
         }, Enum.EasingStyle.Quint)
 
         task.delay(hideDuration, function()
-            if token ~= self._visibilityToken then return end
+            if token ~= self._visibilityToken then
+                return
+            end
             if self.Holder then
                 self.Holder.Visible = false
             end
@@ -595,6 +603,7 @@ function iOSMenu:AddTab(tabSettings)
                 end
             end)
 
+            cacheOriginalTransparency(row)
             return row
         end
 
@@ -636,9 +645,12 @@ function iOSMenu:AddTab(tabSettings)
                 setState(not state)
             end)
 
+            cacheOriginalTransparency(row)
             return {
                 Set = setState,
-                Get = function() return state end,
+                Get = function()
+                    return state
+                end,
             }
         end
 
@@ -672,6 +684,7 @@ function iOSMenu:AddTab(tabSettings)
 
             local fill = Instance.new("Frame")
             fill.BackgroundColor3 = style.AccentColor
+            fill.Size = UDim2.new(0, 0, 1, 0)
             fill.Parent = bar
             makeCorner(fill, 999)
 
@@ -711,10 +724,13 @@ function iOSMenu:AddTab(tabSettings)
             end))
 
             render(value)
+            cacheOriginalTransparency(row)
 
             return {
                 Set = setValue,
-                Get = function() return value end,
+                Get = function()
+                    return value
+                end,
             }
         end
 
@@ -770,10 +786,8 @@ function iOSMenu:AddTab(tabSettings)
                 optionsHeight = optionsHeight + 30
             end
 
-            local shellCorner = makeCorner(menu, 10)
-            local shellStroke = makeStroke(menu, style.BorderColor, 0.5)
-            shellCorner.Parent = menu
-            shellStroke.Parent = menu
+            makeCorner(menu, 10)
+            makeStroke(menu, style.BorderColor, 0.5)
 
             hit.MouseButton1Click:Connect(function()
                 expanded = not expanded
@@ -784,6 +798,7 @@ function iOSMenu:AddTab(tabSettings)
                 end
             end)
 
+            cacheOriginalTransparency(row)
             return {
                 Set = function(value)
                     selected = value
@@ -963,69 +978,57 @@ function iOSMenu:AddTab(tabSettings)
                 updateVisuals(true)
             end
 
-            local function resetDescendants(root)
-    for _, obj in ipairs(root:GetDescendants()) do
-        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-            obj.TextTransparency = 1
-        end
+            local function openPopup()
+                for _, popupRef in ipairs(menuRef._colorPopups) do
+                    if popupRef and popupRef ~= popupApi and popupRef.CloseInstant then
+                        popupRef:CloseInstant()
+                    end
+                end
 
-        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-            obj.BackgroundTransparency = 1
-        end
+                updatePopupPosition()
+                popup.Visible = true
+                popup.BackgroundTransparency = 1
+                popupStroke.Transparency = 1
+                popupScale.Scale = 0.96
 
-        if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-            obj.ImageTransparency = 1
-        end
-    end
-end
-            
-local function openPopup()
-    for _, popupRef in ipairs(menuRef._colorPopups) do
-        if popupRef and popupRef ~= popupApi and popupRef.CloseInstant then
-            popupRef:CloseInstant()
-        end
-    end
+                tweenDescendants(popup, 0, "hide")
+                tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
+                tween(popup, 0.16, { BackgroundTransparency = 0.04 }, Enum.EasingStyle.Quint)
+                tween(popupStroke, 0.16, { Transparency = 0.35 }, Enum.EasingStyle.Quint)
+                tweenDescendants(popup, 0.16, "show")
 
-    updatePopupPosition()
-    popup.Visible = true
-    popup.BackgroundTransparency = 1
-    popupStroke.Transparency = 1
-    popupScale.Scale = 0.96
+                isOpen = true
+            end
 
-    tweenDescendants(popup, 0, "hide")
-    tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
-    tween(popup, 0.16, { BackgroundTransparency = 0.04 }, Enum.EasingStyle.Quint)
-    tween(popupStroke, 0.16, { Transparency = 0.35 }, Enum.EasingStyle.Quint)
-    tweenDescendants(popup, 0.16, "show")
+            local function closePopup()
+                if not isOpen then
+                    return
+                end
+                isOpen = false
 
-    isOpen = true
-end
+                tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
+                tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+                tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
+                tweenDescendants(popup, 0.12, "hide")
 
-local function closePopup()
-    if not isOpen then return end
-    isOpen = false
-
-    tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
-    tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
-    tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
-    tweenDescendants(popup, 0.12, "hide")
-
-    task.delay(0.12, function()
-        if popup and popup.Parent and not isOpen then
-            popup.Visible = false
-        end
-    end)
-end
+                task.delay(0.12, function()
+                    if popup and popup.Parent and not isOpen then
+                        popup.Visible = false
+                    end
+                end)
+            end
 
             popupApi = {}
             popupApi.Instance = popup
 
             function popupApi:CloseInstant()
                 isOpen = false
+                dragMode = nil
                 popup.Visible = false
                 popup.BackgroundTransparency = 1
                 popupStroke.Transparency = 1
                 popupScale.Scale = 0.96
+                tweenDescendants(popup, 0, "hide")
             end
 
             table.insert(menuRef._colorPopups, popupApi)
@@ -1086,6 +1089,8 @@ end
             end))
 
             updateVisuals(false)
+            cacheOriginalTransparency(row)
+            cacheOriginalTransparency(popup)
 
             return {
                 Set = function(color)
@@ -1160,6 +1165,7 @@ end
                 end
             end))
 
+            cacheOriginalTransparency(row)
             return {
                 Set = function(newKey)
                     setKey(newKey, false)
@@ -1198,6 +1204,7 @@ end
                 end
             end)
 
+            cacheOriginalTransparency(row)
             return {
                 Set = function(v)
                     box.Text = tostring(v)
@@ -1214,6 +1221,7 @@ end
             local label = makeLabel(row, text or "Label", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
             label.Size = UDim2.new(1, -10, 1, 0)
             label.Position = UDim2.fromOffset(8, 0)
+            cacheOriginalTransparency(row)
             return label
         end
 
@@ -1223,12 +1231,14 @@ end
             line.BackgroundColor3 = style.BorderColor
             line.BackgroundTransparency = 0.45
             line.Parent = section
+            cacheOriginalTransparency(section)
             return line
         end
 
         section.Position = UDim2.fromOffset(0, 8)
         section.BackgroundTransparency = 1
         tween(section, 0.22, { Position = UDim2.fromOffset(0, 0), BackgroundTransparency = style.SurfaceTransparency }, Enum.EasingStyle.Quart)
+        cacheOriginalTransparency(section)
 
         return api
     end
