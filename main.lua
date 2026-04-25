@@ -1,3 +1,9 @@
+--[[
+    iOSMenu Library for Roblox
+    GitHub raw link placeholder (replace with your own):
+    https://raw.githubusercontent.com/USERNAME/REPOSITORY/BRANCH/main.lua
+]]
+
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -13,7 +19,7 @@ iOSMenu.Defaults = {
     Width = 520,
     Height = 360,
     Draggable = true,
-    UseBlur = true,
+    UseBlur = false,
     CornerRadius = 18,
     AccentColor = Color3.fromRGB(10, 132, 255),
     BackgroundColor = Color3.fromRGB(242, 242, 247),
@@ -139,15 +145,6 @@ function iOSMenu.new(config)
     applyCorner(holder, settings.CornerRadius)
     addStroke(holder, settings.BorderColor, 0.15)
 
-    local blur
-    if settings.UseBlur then
-        blur = Instance.new("BlurEffect")
-        blur.Name = "iOSMenuBlur"
-        blur.Size = 12
-        blur.Parent = game:GetService("Lighting")
-        self.Blur = blur
-    end
-
     local shadow = Instance.new("ImageLabel")
     shadow.Name = "Shadow"
     shadow.Image = "rbxassetid://1316045217"
@@ -271,24 +268,13 @@ function iOSMenu:SetVisible(state)
             Size = UDim2.fromOffset(self.Settings.Width, self.Settings.Height),
             BackgroundTransparency = self.Settings.BackgroundTransparency,
         })
-        if self.Blur then
-            self.Blur.Enabled = true
-            self.Blur.Size = 0
-            tween(self.Blur, self.Settings.AnimationSpeed, { Size = 12 })
-        end
     else
         tween(self.Holder, self.Settings.AnimationSpeed, {
             Size = UDim2.fromOffset(self.Settings.Width * 0.92, self.Settings.Height * 0.92),
             BackgroundTransparency = 1,
         })
-        if self.Blur then
-            tween(self.Blur, self.Settings.AnimationSpeed, { Size = 0 })
-        end
         task.delay(self.Settings.AnimationSpeed, function()
             self.Holder.Visible = false
-            if self.Blur then
-                self.Blur.Enabled = false
-            end
         end)
     end
 end
@@ -356,25 +342,26 @@ function iOSMenu:AddTab(tabSettings)
 
     function tab:AddSection(sectionSettings)
         sectionSettings = sectionSettings or {}
+        local style = self.Settings
         local section = Instance.new("Frame")
-        section.BackgroundColor3 = self.Settings.SurfaceColor
-        section.BackgroundTransparency = self.Settings.SurfaceTransparency
+        section.BackgroundColor3 = style.SurfaceColor
+        section.BackgroundTransparency = style.SurfaceTransparency
         section.Size = UDim2.new(1, 0, 0, 44)
         section.AutomaticSize = Enum.AutomaticSize.Y
         section.Parent = self.Page
-        applyCorner(section, math.max(12, self.Settings.CornerRadius - 6))
-        addStroke(section, self.Settings.BorderColor, 0.4)
+        applyCorner(section, math.max(12, style.CornerRadius - 6))
+        addStroke(section, style.BorderColor, 0.4)
         addPadding(section, 10)
 
         local sectionLayout = Instance.new("UIListLayout")
         sectionLayout.Padding = UDim.new(0, 8)
         sectionLayout.Parent = section
 
-        local sectionTitle = createText(section, sectionSettings.Title or "Section", self.Settings.NormalTextSize, self.Settings.TextColor, self.Settings.Font, Enum.TextXAlignment.Left)
+        local sectionTitle = createText(section, sectionSettings.Title or "Section", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
         sectionTitle.Size = UDim2.new(1, 0, 0, 20)
 
         if sectionSettings.Description then
-            local desc = createText(section, sectionSettings.Description, self.Settings.SmallTextSize, self.Settings.SubTextColor, self.Settings.Font, Enum.TextXAlignment.Left)
+            local desc = createText(section, sectionSettings.Description, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
             desc.TextWrapped = true
             desc.AutomaticSize = Enum.AutomaticSize.Y
             desc.Size = UDim2.new(1, 0, 0, 16)
@@ -384,11 +371,11 @@ function iOSMenu:AddTab(tabSettings)
 
         local function makeRow(height)
             local row = Instance.new("Frame")
-            row.Size = UDim2.new(1, 0, 0, height or self.Settings.ItemHeight)
+            row.Size = UDim2.new(1, 0, 0, height or style.ItemHeight)
             row.BackgroundColor3 = Color3.fromRGB(248, 248, 250)
             row.Parent = section
             applyCorner(row, 10)
-            addStroke(row, self.Settings.BorderColor, 0.5)
+            addStroke(row, style.BorderColor, 0.5)
             return row
         end
 
@@ -398,7 +385,7 @@ function iOSMenu:AddTab(tabSettings)
             local btn = makeButton(row)
             btn.Size = UDim2.fromScale(1, 1)
 
-            local text = createText(row, data.Text or "Button", self.Settings.NormalTextSize, self.Settings.TextColor, self.Settings.Font, Enum.TextXAlignment.Left)
+            local text = createText(row, data.Text or "Button", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
             text.Position = UDim2.fromOffset(12, 0)
             text.Size = UDim2.new(1, -24, 1, 0)
 
@@ -417,14 +404,14 @@ function iOSMenu:AddTab(tabSettings)
             local btn = makeButton(row)
             btn.Size = UDim2.fromScale(1, 1)
 
-            local text = createText(row, data.Text or "Toggle", self.Settings.NormalTextSize, self.Settings.TextColor, self.Settings.Font, Enum.TextXAlignment.Left)
+            local text = createText(row, data.Text or "Toggle", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
             text.Position = UDim2.fromOffset(12, 0)
             text.Size = UDim2.new(1, -76, 1, 0)
 
             local switch = Instance.new("Frame")
             switch.Size = UDim2.fromOffset(44, 24)
             switch.Position = UDim2.new(1, -56, 0.5, -12)
-            switch.BackgroundColor3 = state and self.Settings.AccentColor or Color3.fromRGB(199, 199, 204)
+            switch.BackgroundColor3 = state and style.AccentColor or Color3.fromRGB(199, 199, 204)
             switch.Parent = row
             applyCorner(switch, 999)
 
@@ -437,7 +424,7 @@ function iOSMenu:AddTab(tabSettings)
 
             local function setState(newState)
                 state = newState
-                tween(switch, 0.12, { BackgroundColor3 = state and self.Settings.AccentColor or Color3.fromRGB(199, 199, 204) })
+                tween(switch, 0.12, { BackgroundColor3 = state and style.AccentColor or Color3.fromRGB(199, 199, 204) })
                 tween(knob, 0.12, { Position = state and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2) })
                 if data.Callback then
                     data.Callback(state)
@@ -466,11 +453,11 @@ function iOSMenu:AddTab(tabSettings)
             local dragging = false
 
             local row = makeRow(math.max(data.Height or 58, 58))
-            local text = createText(row, data.Text or "Slider", self.Settings.NormalTextSize, self.Settings.TextColor, self.Settings.Font, Enum.TextXAlignment.Left)
+            local text = createText(row, data.Text or "Slider", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
             text.Position = UDim2.fromOffset(12, 6)
             text.Size = UDim2.new(1, -84, 0, 18)
 
-            local valueLabel = createText(row, tostring(value), self.Settings.SmallTextSize, self.Settings.SubTextColor, self.Settings.Font, Enum.TextXAlignment.Right)
+            local valueLabel = createText(row, tostring(value), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
             valueLabel.Position = UDim2.new(1, -68, 0, 8)
             valueLabel.Size = UDim2.fromOffset(56, 14)
 
@@ -484,7 +471,7 @@ function iOSMenu:AddTab(tabSettings)
             local fill = Instance.new("Frame")
             local range = math.max(max - min, 1)
             fill.Size = UDim2.new((value - min) / range, 0, 1, 0)
-            fill.BackgroundColor3 = self.Settings.AccentColor
+            fill.BackgroundColor3 = style.AccentColor
             fill.Parent = bar
             applyCorner(fill, 999)
 
@@ -532,11 +519,11 @@ function iOSMenu:AddTab(tabSettings)
             local btn = makeButton(row)
             btn.Size = UDim2.fromScale(1, 1)
 
-            local titleRow = createText(row, data.Text or "Dropdown", self.Settings.NormalTextSize, self.Settings.TextColor, self.Settings.Font, Enum.TextXAlignment.Left)
+            local titleRow = createText(row, data.Text or "Dropdown", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
             titleRow.Position = UDim2.fromOffset(12, 0)
             titleRow.Size = UDim2.new(0.5, 0, 1, 0)
 
-            local valueLabel = createText(row, tostring(selected), self.Settings.SmallTextSize, self.Settings.SubTextColor, self.Settings.Font, Enum.TextXAlignment.Right)
+            local valueLabel = createText(row, tostring(selected), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
             valueLabel.Position = UDim2.new(1, -130, 0, 0)
             valueLabel.Size = UDim2.new(0, 102, 1, 0)
 
@@ -546,7 +533,7 @@ function iOSMenu:AddTab(tabSettings)
             menu.BackgroundColor3 = Color3.fromRGB(245, 245, 247)
             menu.Parent = section
             applyCorner(menu, 10)
-            addStroke(menu, self.Settings.BorderColor, 0.45)
+            addStroke(menu, style.BorderColor, 0.45)
             addPadding(menu, 4)
 
             local menuLayout = Instance.new("UIListLayout")
@@ -556,7 +543,7 @@ function iOSMenu:AddTab(tabSettings)
             for _, option in ipairs(options) do
                 local optionBtn = makeButton(menu)
                 optionBtn.Size = UDim2.new(1, 0, 0, 26)
-                local optionText = createText(optionBtn, tostring(option), self.Settings.SmallTextSize, self.Settings.TextColor, self.Settings.Font, Enum.TextXAlignment.Left)
+                local optionText = createText(optionBtn, tostring(option), style.SmallTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
                 optionText.Size = UDim2.new(1, -12, 1, 0)
                 optionText.Position = UDim2.fromOffset(6, 0)
                 optionBtn.MouseButton1Click:Connect(function()
@@ -593,11 +580,11 @@ function iOSMenu:AddTab(tabSettings)
             box.ClearTextOnFocus = false
             box.PlaceholderText = data.Placeholder or "Input"
             box.Text = data.Default or ""
-            box.TextColor3 = self.Settings.TextColor
-            box.PlaceholderColor3 = self.Settings.SubTextColor
-            box.TextSize = self.Settings.NormalTextSize
+            box.TextColor3 = style.TextColor
+            box.PlaceholderColor3 = style.SubTextColor
+            box.TextSize = style.NormalTextSize
             box.TextXAlignment = Enum.TextXAlignment.Left
-            box.Font = self.Settings.Font
+            box.Font = style.Font
             box.Parent = row
 
             box.FocusLost:Connect(function(enterPressed)
@@ -615,7 +602,7 @@ function iOSMenu:AddTab(tabSettings)
         function api:AddLabel(text)
             local row = makeRow(32)
             row.BackgroundTransparency = 1
-            local label = createText(row, text or "Label", self.Settings.SmallTextSize, self.Settings.SubTextColor, self.Settings.Font, Enum.TextXAlignment.Left)
+            local label = createText(row, text or "Label", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
             label.Size = UDim2.new(1, -8, 1, 0)
             label.Position = UDim2.fromOffset(8, 0)
             return label
@@ -624,7 +611,7 @@ function iOSMenu:AddTab(tabSettings)
         function api:AddDivider()
             local line = Instance.new("Frame")
             line.Size = UDim2.new(1, 0, 0, 1)
-            line.BackgroundColor3 = self.Settings.BorderColor
+            line.BackgroundColor3 = style.BorderColor
             line.BackgroundTransparency = 0.5
             line.Parent = section
             return line
@@ -657,9 +644,6 @@ function iOSMenu:Destroy()
         if connection and connection.Connected then
             connection:Disconnect()
         end
-    end
-    if self.Blur then
-        self.Blur:Destroy()
     end
     if self.Holder then
         self.Holder:Destroy()
