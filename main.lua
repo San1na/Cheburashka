@@ -2,6 +2,15 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 
+local ALPHA_PROPS = {
+    "BackgroundTransparency",
+    "TextTransparency",
+    "TextStrokeTransparency",
+    "ImageTransparency",
+    "ScrollBarImageTransparency",
+    "Transparency",
+}
+
 local iOSMenu = {}
 iOSMenu.__index = iOSMenu
 
@@ -317,8 +326,10 @@ function iOSMenu.new(config)
         Size = UDim2.fromOffset(settings.Width, settings.Height),
         BackgroundTransparency = settings.BackgroundTransparency,
     }, Enum.EasingStyle.Back)
-    holderScale.Scale = 0.94
+    holderScale.Scale = 0.97
     tween(holderScale, settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back)
+    self:_captureMenuVisuals()
+    self:_tweenMenuAlpha(0, settings.AnimationSpeed)
 
     return self
 end
@@ -329,26 +340,30 @@ function iOSMenu:SetVisible(state)
     self.Visible = state
     if state then
         self.Holder.Visible = true
+        self:_tweenMenuAlpha(1, 0.01)
         self.Holder.Size = UDim2.fromOffset(self.Settings.Width * 0.94, self.Settings.Height * 0.94)
-        self.HolderScale.Scale = 0.94
+        self.HolderScale.Scale = 0.97
         self.Holder.BackgroundTransparency = 1
         tween(self.Holder, self.Settings.AnimationSpeed, {
             Size = UDim2.fromOffset(self.Settings.Width, self.Settings.Height),
             BackgroundTransparency = self.Settings.BackgroundTransparency,
-        }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-        tween(self.HolderScale, self.Settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        }, Enum.EasingStyle.Back)
+        tween(self.HolderScale, self.Settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back)
+        self:_tweenMenuAlpha(0, self.Settings.AnimationSpeed)
     else
-        local hideDuration = self.Settings.AnimationSpeed * 0.8
+        local hideDuration = self.Settings.AnimationSpeed * 0.9
         for _, popupRef in ipairs(self._colorPopups) do
             if popupRef and popupRef.CloseInstant then
                 popupRef:CloseInstant()
             end
         end
+        self:_captureMenuVisuals()
         tween(self.Holder, hideDuration, {
             Size = UDim2.fromOffset(self.Settings.Width * 0.94, self.Settings.Height * 0.94),
             BackgroundTransparency = 1,
-        }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        tween(self.HolderScale, hideDuration, { Scale = 0.94 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        }, Enum.EasingStyle.Quad)
+        tween(self.HolderScale, hideDuration, { Scale = 0.97 }, Enum.EasingStyle.Quad)
+        self:_tweenMenuAlpha(1, hideDuration)
         task.delay(hideDuration, function()
             if token ~= self._visibilityToken then
                 return
@@ -375,6 +390,46 @@ function iOSMenu:SetKeybind(keyCode)
     end
     self.Settings.Keybind = keyCode
     return true
+end
+
+function iOSMenu:_captureMenuVisuals()
+    self._menuVisualBase = {}
+
+    local function capture(instance)
+        local props = {}
+        for _, prop in ipairs(ALPHA_PROPS) do
+            local ok, value = pcall(function()
+                return instance[prop]
+            end)
+            if ok and typeof(value) == "number" then
+                props[prop] = value
+            end
+        end
+        if next(props) then
+            self._menuVisualBase[instance] = props
+        end
+    end
+
+    capture(self.Holder)
+    for _, instance in ipairs(self.Holder:GetDescendants()) do
+        capture(instance)
+    end
+end
+
+function iOSMenu:_tweenMenuAlpha(alpha, duration)
+    if not self._menuVisualBase then
+        return
+    end
+    local clamped = math.clamp(alpha, 0, 1)
+    for instance, baseProps in pairs(self._menuVisualBase) do
+        if instance and instance.Parent then
+            local target = {}
+            for prop, base in pairs(baseProps) do
+                target[prop] = base + (1 - base) * clamped
+            end
+            tween(instance, duration, target, Enum.EasingStyle.Quint)
+        end
+    end
 end
 
 function iOSMenu:_refreshTabs()
@@ -437,19 +492,15 @@ function iOSMenu:AddTab(tabSettings)
     }
 
     function tab:SetActive(state)
+        self.Page.Visible = state
         if state then
-            self.Page.Visible = true
+            self.Page.CanvasPosition = Vector2.new(0, 0)
             self.Page.Position = UDim2.fromOffset(16, 0)
-            tween(self.Page, 0.25, { Position = UDim2.fromOffset(0, 0) }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            self.Page.BackgroundTransparency = 1
+            tween(self.Page, 0.2, { Position = UDim2.fromOffset(0, 0), BackgroundTransparency = 0.999 }, Enum.EasingStyle.Quart)
             tween(self.Label, 0.16, { TextColor3 = Color3.fromRGB(255, 255, 255) })
         else
-            tween(self.Page, 0.15, { Position = UDim2.fromOffset(-16, 0) }, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
             tween(self.Label, 0.16, { TextColor3 = self.Settings.SubTextColor })
-            task.delay(0.15, function()
-                if self.Menu.CurrentTab ~= self then
-                    self.Page.Visible = false
-                end
-            end)
         end
     end
 
@@ -591,7 +642,7 @@ function iOSMenu:AddTab(tabSettings)
 
             local function render(v)
                 local range = math.max(max - min, 1)
-                tween(fill, 0.12, { Size = UDim2.new((v - min) / range, 0, 1, 0) }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+                tween(fill, 0.12, { Size = UDim2.new((v - min) / range, 0, 1, 0) }, Enum.EasingStyle.Quint)
                 valueLabel.Text = tostring(v)
             end
 
@@ -743,27 +794,22 @@ function iOSMenu:AddTab(tabSettings)
             popup.Visible = false
             popup.Size = UDim2.fromOffset(220, 166)
             popup.BackgroundColor3 = Color3.fromRGB(246, 246, 248)
-            popup.BackgroundTransparency = 1
+            popup.BackgroundTransparency = 0.04
             popup.ZIndex = 100
             popup.Parent = menuRef.Root
             makeCorner(popup, 12)
             makeStroke(popup, style.BorderColor, 0.35)
 
             local popupScale = Instance.new("UIScale")
-            popupScale.Scale = 0.8
+            popupScale.Scale = 0.96
             popupScale.Parent = popup
-
-            local popupCanvas = Instance.new("Frame")
-            popupCanvas.Size = UDim2.fromScale(1, 1)
-            popupCanvas.BackgroundTransparency = 1
-            popupCanvas.Parent = popup
 
             local sv = Instance.new("Frame")
             sv.Size = UDim2.new(1, -54, 1, -16)
             sv.Position = UDim2.fromOffset(8, 8)
             sv.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
             sv.ZIndex = 21
-            sv.Parent = popupCanvas
+            sv.Parent = popup
             makeCorner(sv, 8)
 
             local whiteLayer = Instance.new("Frame")
@@ -808,7 +854,7 @@ function iOSMenu:AddTab(tabSettings)
             hueBar.Size = UDim2.new(0, 18, 1, -16)
             hueBar.Position = UDim2.new(1, -30, 0, 8)
             hueBar.ZIndex = 21
-            hueBar.Parent = popupCanvas
+            hueBar.Parent = popup
             makeCorner(hueBar, 8)
 
             local hueGradient = Instance.new("UIGradient")
@@ -846,14 +892,50 @@ function iOSMenu:AddTab(tabSettings)
                 preview.BackgroundColor3 = currentColor
                 hexLabel.Text = colorToHex(currentColor)
                 sv.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
-                svCursor.Position = UDim2.new(s, 0, 1 - v, 0)
-                hueCursor.Position = UDim2.new(0.5, 0, h, 0)
+                tween(svCursor, 0.08, { Position = UDim2.new(s, 0, 1 - v, 0) }, Enum.EasingStyle.Quint)
+                tween(hueCursor, 0.08, { Position = UDim2.new(0.5, 0, h, 0) }, Enum.EasingStyle.Quint)
                 if emit and data.Callback then
                     data.Callback(currentColor)
                 end
             end
 
             local popupApi
+            local popupVisualBase = {}
+
+            local function capturePopupVisuals()
+                popupVisualBase = {}
+                local function capture(instance)
+                    local props = {}
+                    for _, prop in ipairs(ALPHA_PROPS) do
+                        local ok, value = pcall(function()
+                            return instance[prop]
+                        end)
+                        if ok and typeof(value) == "number" then
+                            props[prop] = value
+                        end
+                    end
+                    if next(props) then
+                        popupVisualBase[instance] = props
+                    end
+                end
+                capture(popup)
+                for _, child in ipairs(popup:GetDescendants()) do
+                    capture(child)
+                end
+            end
+
+            local function tweenPopupAlpha(alpha, duration)
+                local clamped = math.clamp(alpha, 0, 1)
+                for instance, baseProps in pairs(popupVisualBase) do
+                    if instance and instance.Parent then
+                        local target = {}
+                        for prop, base in pairs(baseProps) do
+                            target[prop] = base + (1 - base) * clamped
+                        end
+                        tween(instance, duration, target, Enum.EasingStyle.Quint)
+                    end
+                end
+            end
 
             local function updatePopupPosition()
                 local rootPos = menuRef.Root.AbsolutePosition
@@ -887,10 +969,10 @@ function iOSMenu:AddTab(tabSettings)
                 end
                 updatePopupPosition()
                 popup.Visible = true
-                popup.BackgroundTransparency = 1
-                popupScale.Scale = 0.8
-                tween(popup, 0.16, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-                tween(popupScale, 0.2, { Scale = 1 }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                popupScale.Scale = 0.96
+                tweenPopupAlpha(1, 0.01)
+                tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
+                tweenPopupAlpha(0, 0.16)
                 isOpen = true
             end
 
@@ -899,8 +981,8 @@ function iOSMenu:AddTab(tabSettings)
                     return
                 end
                 isOpen = false
-                tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-                tween(popupScale, 0.12, { Scale = 0.8 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+                tweenPopupAlpha(1, 0.12)
+                tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
                 task.delay(0.12, function()
                     if popup and popup.Parent and not isOpen then
                         popup.Visible = false
@@ -914,10 +996,11 @@ function iOSMenu:AddTab(tabSettings)
             function popupApi:CloseInstant()
                 isOpen = false
                 popup.Visible = false
-                popup.BackgroundTransparency = 1
-                popupScale.Scale = 0.8
+                popupScale.Scale = 0.96
+                tweenPopupAlpha(1, 0.01)
             end
 
+            capturePopupVisuals()
             table.insert(menuRef._colorPopups, popupApi)
 
             rowButton.MouseButton1Click:Connect(function()
