@@ -1,3 +1,9 @@
+--[[
+    iOSMenu Library for Roblox
+    GitHub raw link placeholder (replace with your own):
+    https://raw.githubusercontent.com/USERNAME/REPOSITORY/BRANCH/main.lua
+]]
+
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -164,7 +170,8 @@ function iOSMenu.new(config)
     self.Visible = true
     self.CurrentTab = nil
     self.Connections = {}
-    self._isAnimatingVisibility = false
+    self._visibilityToken = 0
+    self._colorPopups = {}
 
     local root = getParent(settings.Parent)
 
@@ -325,10 +332,8 @@ function iOSMenu.new(config)
 end
 
 function iOSMenu:SetVisible(state)
-    if self._isAnimatingVisibility then
-        return
-    end
-    self._isAnimatingVisibility = true
+    self._visibilityToken = self._visibilityToken + 1
+    local token = self._visibilityToken
     self.Visible = state
     if state then
         self.Holder.Visible = true
@@ -342,14 +347,11 @@ function iOSMenu:SetVisible(state)
         }, Enum.EasingStyle.Back)
         tween(self.HolderScale, self.Settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back)
         tween(self.ContentGroup, self.Settings.AnimationSpeed, { GroupTransparency = 0 }, Enum.EasingStyle.Quint)
-        task.delay(self.Settings.AnimationSpeed, function()
-            self._isAnimatingVisibility = false
-        end)
     else
         local hideDuration = self.Settings.AnimationSpeed * 0.9
-        for _, node in ipairs(self.Holder:GetDescendants()) do
-            if node:IsA("Frame") and node.Name == "ColorPopup" then
-                node.Visible = false
+        for _, popupRef in ipairs(self._colorPopups) do
+            if popupRef and popupRef.CloseInstant then
+                popupRef:CloseInstant()
             end
         end
         tween(self.Holder, hideDuration, {
@@ -359,10 +361,12 @@ function iOSMenu:SetVisible(state)
         tween(self.HolderScale, hideDuration, { Scale = 0.97 }, Enum.EasingStyle.Quad)
         tween(self.ContentGroup, hideDuration, { GroupTransparency = 1 }, Enum.EasingStyle.Quint)
         task.delay(hideDuration, function()
+            if token ~= self._visibilityToken then
+                return
+            end
             if self.Holder then
                 self.Holder.Visible = false
             end
-            self._isAnimatingVisibility = false
         end)
     end
 end
@@ -746,9 +750,9 @@ function iOSMenu:AddTab(tabSettings)
             popup.Visible = false
             popup.Size = UDim2.fromOffset(220, 166)
             popup.BackgroundColor3 = Color3.fromRGB(246, 246, 248)
-            popup.BackgroundTransparency = 0.04
-            popup.ZIndex = 20
-            popup.Parent = menuRef.Holder
+            popup.BackgroundTransparency = 1
+            popup.ZIndex = 100
+            popup.Parent = menuRef.Root
             makeCorner(popup, 12)
             makeStroke(popup, style.BorderColor, 0.35)
 
@@ -756,12 +760,18 @@ function iOSMenu:AddTab(tabSettings)
             popupScale.Scale = 0.96
             popupScale.Parent = popup
 
+            local popupCanvas = Instance.new("CanvasGroup")
+            popupCanvas.Size = UDim2.fromScale(1, 1)
+            popupCanvas.BackgroundTransparency = 1
+            popupCanvas.GroupTransparency = 1
+            popupCanvas.Parent = popup
+
             local sv = Instance.new("Frame")
             sv.Size = UDim2.new(1, -54, 1, -16)
             sv.Position = UDim2.fromOffset(8, 8)
             sv.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
             sv.ZIndex = 21
-            sv.Parent = popup
+            sv.Parent = popupCanvas
             makeCorner(sv, 8)
 
             local whiteLayer = Instance.new("Frame")
@@ -806,7 +816,7 @@ function iOSMenu:AddTab(tabSettings)
             hueBar.Size = UDim2.new(0, 18, 1, -16)
             hueBar.Position = UDim2.new(1, -30, 0, 8)
             hueBar.ZIndex = 21
-            hueBar.Parent = popup
+            hueBar.Parent = popupCanvas
             makeCorner(hueBar, 8)
 
             local hueGradient = Instance.new("UIGradient")
@@ -851,14 +861,16 @@ function iOSMenu:AddTab(tabSettings)
                 end
             end
 
+            local popupApi
+
             local function updatePopupPosition()
-                local holderPos = menuRef.Holder.AbsolutePosition
-                local holderSize = menuRef.Holder.AbsoluteSize
+                local rootPos = menuRef.Root.AbsolutePosition
+                local rootSize = menuRef.Root.AbsoluteSize
                 local rowPos = row.AbsolutePosition
-                local relativeX = rowPos.X - holderPos.X
-                local relativeY = rowPos.Y - holderPos.Y + row.AbsoluteSize.Y + 6
-                local maxX = math.max(0, holderSize.X - popup.AbsoluteSize.X - 8)
-                local maxY = math.max(0, holderSize.Y - popup.AbsoluteSize.Y - 8)
+                local relativeX = rowPos.X - rootPos.X + row.AbsoluteSize.X + 8
+                local relativeY = rowPos.Y - rootPos.Y
+                local maxX = math.max(8, rootSize.X - popup.AbsoluteSize.X - 8)
+                local maxY = math.max(8, rootSize.Y - popup.AbsoluteSize.Y - 8)
                 popup.Position = UDim2.fromOffset(math.clamp(relativeX, 8, maxX), math.clamp(relativeY, 8, maxY))
             end
 
@@ -876,12 +888,19 @@ function iOSMenu:AddTab(tabSettings)
             end
 
             local function openPopup()
+                for _, popupRef in ipairs(menuRef._colorPopups) do
+                    if popupRef and popupRef ~= popupApi and popupRef.CloseInstant then
+                        popupRef:CloseInstant()
+                    end
+                end
                 updatePopupPosition()
                 popup.Visible = true
                 popup.BackgroundTransparency = 1
                 popupScale.Scale = 0.96
+                popupCanvas.GroupTransparency = 1
                 tween(popup, 0.16, { BackgroundTransparency = 0.04 }, Enum.EasingStyle.Quint)
                 tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
+                tween(popupCanvas, 0.16, { GroupTransparency = 0 }, Enum.EasingStyle.Quint)
                 isOpen = true
             end
 
@@ -892,12 +911,26 @@ function iOSMenu:AddTab(tabSettings)
                 isOpen = false
                 tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
                 tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
+                tween(popupCanvas, 0.12, { GroupTransparency = 1 }, Enum.EasingStyle.Quad)
                 task.delay(0.12, function()
                     if popup and popup.Parent and not isOpen then
                         popup.Visible = false
                     end
                 end)
             end
+
+            popupApi = {}
+            popupApi.Instance = popup
+
+            function popupApi:CloseInstant()
+                isOpen = false
+                popup.Visible = false
+                popup.BackgroundTransparency = 1
+                popupCanvas.GroupTransparency = 1
+                popupScale.Scale = 0.96
+            end
+
+            table.insert(menuRef._colorPopups, popupApi)
 
             rowButton.MouseButton1Click:Connect(function()
                 if isOpen then
@@ -1134,6 +1167,11 @@ function iOSMenu:Destroy()
     for _, connection in ipairs(self.Connections) do
         if connection and connection.Connected then
             connection:Disconnect()
+        end
+    end
+    for _, popupRef in ipairs(self._colorPopups) do
+        if popupRef and popupRef.Instance and popupRef.Instance.Parent then
+            popupRef.Instance:Destroy()
         end
     end
     if self.Holder then
