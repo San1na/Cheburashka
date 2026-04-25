@@ -1,6 +1,21 @@
+--[[
+    iOSMenu Library for Roblox
+    GitHub raw link placeholder (replace with your own):
+    https://raw.githubusercontent.com/USERNAME/REPOSITORY/BRANCH/main.lua
+]]
+
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
+
+local VISUAL_PROPS = {
+    "BackgroundTransparency",
+    "TextTransparency",
+    "TextStrokeTransparency",
+    "ImageTransparency",
+    "ScrollBarImageTransparency",
+    "Transparency",
+}
 
 local iOSMenu = {}
 iOSMenu.__index = iOSMenu
@@ -98,6 +113,24 @@ local function tween(instance, speed, props, easingStyle, easingDirection)
     return tw
 end
 
+local function clamp01(v)
+    return math.clamp(v, 0, 1)
+end
+
+local function keyToText(keyCode)
+    if not keyCode or keyCode == Enum.KeyCode.Unknown then
+        return "None"
+    end
+    return keyCode.Name
+end
+
+local function colorToHex(color)
+    local r = math.floor(color.R * 255 + 0.5)
+    local g = math.floor(color.G * 255 + 0.5)
+    local b = math.floor(color.B * 255 + 0.5)
+    return string.format("#%02X%02X%02X", r, g, b)
+end
+
 local function pressAnimation(button)
     local scale = Instance.new("UIScale")
     scale.Scale = 1
@@ -146,6 +179,8 @@ function iOSMenu.new(config)
     self.Visible = true
     self.CurrentTab = nil
     self.Connections = {}
+    self._visualBaseline = setmetatable({}, { __mode = "k" })
+    self._isAnimatingVisibility = false
 
     local root = getParent(settings.Parent)
 
@@ -158,6 +193,9 @@ function iOSMenu.new(config)
     holder.BackgroundTransparency = settings.BackgroundTransparency
     holder.ClipsDescendants = true
     holder.Parent = root
+    local holderScale = Instance.new("UIScale")
+    holderScale.Scale = 1
+    holderScale.Parent = holder
     makeCorner(holder, settings.CornerRadius)
     makeStroke(holder, settings.BorderColor, 0.12)
 
@@ -237,6 +275,7 @@ function iOSMenu.new(config)
     self.TabsContainer = tabsContainer
     self.Indicator = indicator
     self.Pages = pages
+    self.HolderScale = holderScale
 
     local dragStart, startPos
     if settings.Draggable then
@@ -265,14 +304,19 @@ function iOSMenu.new(config)
         self:Toggle()
     end))
 
-    table.insert(self.Connections, UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then
+    table.insert(self.Connections, UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.Keyboard then
             return
         end
-        if input.KeyCode == settings.Keybind then
+        if UserInputService:GetFocusedTextBox() then
+            return
+        end
+        if input.KeyCode == self.Settings.Keybind then
             self:Toggle()
         end
     end))
+
+    self:_cacheVisuals()
 
     holder.Size = UDim2.fromOffset(settings.Width * 0.94, settings.Height * 0.94)
     holder.BackgroundTransparency = 1
@@ -280,29 +324,49 @@ function iOSMenu.new(config)
         Size = UDim2.fromOffset(settings.Width, settings.Height),
         BackgroundTransparency = settings.BackgroundTransparency,
     }, Enum.EasingStyle.Back)
+    holderScale.Scale = 0.97
+    tween(holderScale, settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back)
+    self:_tweenVisuals(0, settings.AnimationSpeed)
 
     return self
 end
 
 function iOSMenu:SetVisible(state)
+    if self._isAnimatingVisibility then
+        return
+    end
+    self._isAnimatingVisibility = true
     self.Visible = state
     if state then
+        self:_cacheVisuals()
         self.Holder.Visible = true
+        self:_tweenVisuals(1, 0.01)
         self.Holder.Size = UDim2.fromOffset(self.Settings.Width * 0.94, self.Settings.Height * 0.94)
+        self.HolderScale.Scale = 0.97
         self.Holder.BackgroundTransparency = 1
         tween(self.Holder, self.Settings.AnimationSpeed, {
             Size = UDim2.fromOffset(self.Settings.Width, self.Settings.Height),
             BackgroundTransparency = self.Settings.BackgroundTransparency,
         }, Enum.EasingStyle.Back)
+        tween(self.HolderScale, self.Settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back)
+        self:_tweenVisuals(0, self.Settings.AnimationSpeed)
+        task.delay(self.Settings.AnimationSpeed, function()
+            self._isAnimatingVisibility = false
+        end)
     else
-        tween(self.Holder, self.Settings.AnimationSpeed * 0.9, {
+        local hideDuration = self.Settings.AnimationSpeed * 0.9
+        self:_cacheVisuals()
+        tween(self.Holder, hideDuration, {
             Size = UDim2.fromOffset(self.Settings.Width * 0.94, self.Settings.Height * 0.94),
             BackgroundTransparency = 1,
         }, Enum.EasingStyle.Quad)
-        task.delay(self.Settings.AnimationSpeed * 0.9, function()
+        tween(self.HolderScale, hideDuration, { Scale = 0.97 }, Enum.EasingStyle.Quad)
+        self:_tweenVisuals(1, hideDuration)
+        task.delay(hideDuration, function()
             if self.Holder then
                 self.Holder.Visible = false
             end
+            self._isAnimatingVisibility = false
         end)
     end
 end
@@ -314,6 +378,53 @@ end
 function iOSMenu:SetTitle(name, subtitle)
     self.TitleLabel.Text = name or self.TitleLabel.Text
     self.SubtitleLabel.Text = subtitle or self.SubtitleLabel.Text
+end
+
+function iOSMenu:SetKeybind(keyCode)
+    if typeof(keyCode) ~= "EnumItem" or keyCode.EnumType ~= Enum.KeyCode then
+        return false
+    end
+    self.Settings.Keybind = keyCode
+    return true
+end
+
+function iOSMenu:_cacheVisuals()
+    local function cacheFor(instance)
+        if self._visualBaseline[instance] then
+            return
+        end
+        local values = {}
+        for _, prop in ipairs(VISUAL_PROPS) do
+            local ok, value = pcall(function()
+                return instance[prop]
+            end)
+            if ok and typeof(value) == "number" then
+                values[prop] = value
+            end
+        end
+        if next(values) then
+            self._visualBaseline[instance] = values
+        end
+    end
+
+    cacheFor(self.Holder)
+    for _, instance in ipairs(self.Holder:GetDescendants()) do
+        cacheFor(instance)
+    end
+end
+
+function iOSMenu:_tweenVisuals(alpha, duration)
+    for instance, baseProps in pairs(self._visualBaseline) do
+        if instance and instance.Parent then
+            local target = {}
+            for prop, baseValue in pairs(baseProps) do
+                target[prop] = baseValue + (1 - baseValue) * clamp01(alpha)
+            end
+            tween(instance, duration, target, Enum.EasingStyle.Quint)
+        else
+            self._visualBaseline[instance] = nil
+        end
+    end
 end
 
 function iOSMenu:_refreshTabs()
@@ -640,6 +751,276 @@ function iOSMenu:AddTab(tabSettings)
                 end,
                 Get = function()
                     return selected
+                end,
+            }
+        end
+
+        function api:AddColorPicker(data)
+            data = data or {}
+            local titleText = data.Text or "Color Picker"
+            local currentColor = data.Default or style.AccentColor
+            local h, s, v = Color3.toHSV(currentColor)
+            local expanded = false
+            local dragMode = nil
+
+            local row = makeRow(data.Height or style.ItemHeight)
+            row.AutomaticSize = Enum.AutomaticSize.Y
+
+            local headerButton = makeButton(row)
+            headerButton.Size = UDim2.new(1, 0, 0, style.ItemHeight)
+            pressAnimation(headerButton)
+
+            local title = makeLabel(row, titleText, style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+            title.Size = UDim2.new(1, -120, 0, style.ItemHeight)
+            title.Position = UDim2.fromOffset(12, 0)
+
+            local hexLabel = makeLabel(row, colorToHex(currentColor), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
+            hexLabel.Size = UDim2.new(0, 70, 0, style.ItemHeight)
+            hexLabel.Position = UDim2.new(1, -98, 0, 0)
+
+            local preview = Instance.new("Frame")
+            preview.Size = UDim2.fromOffset(18, 18)
+            preview.Position = UDim2.new(1, -24, 0.5, -9)
+            preview.BackgroundColor3 = currentColor
+            preview.Parent = row
+            makeCorner(preview, 999)
+            makeStroke(preview, Color3.fromRGB(255, 255, 255), 0.35)
+
+            local panel = Instance.new("Frame")
+            panel.Size = UDim2.new(1, -12, 0, 0)
+            panel.Position = UDim2.fromOffset(6, style.ItemHeight)
+            panel.BackgroundColor3 = Color3.fromRGB(246, 246, 248)
+            panel.BackgroundTransparency = 1
+            panel.ClipsDescendants = true
+            panel.Parent = row
+            makeCorner(panel, 10)
+            makeStroke(panel, style.BorderColor, 0.45)
+
+            local sv = Instance.new("Frame")
+            sv.Size = UDim2.new(1, -54, 0, 120)
+            sv.Position = UDim2.fromOffset(8, 8)
+            sv.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+            sv.Parent = panel
+            makeCorner(sv, 8)
+
+            local whiteLayer = Instance.new("Frame")
+            whiteLayer.Size = UDim2.fromScale(1, 1)
+            whiteLayer.BackgroundColor3 = Color3.new(1, 1, 1)
+            whiteLayer.Parent = sv
+            makeCorner(whiteLayer, 8)
+
+            local whiteGradient = Instance.new("UIGradient")
+            whiteGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.new(1, 1, 1)),
+                ColorSequenceKeypoint.new(1, Color3.new(1, 1, 1)),
+            })
+            whiteGradient.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0),
+                NumberSequenceKeypoint.new(1, 1),
+            })
+            whiteGradient.Rotation = 0
+            whiteGradient.Parent = whiteLayer
+
+            local blackLayer = Instance.new("Frame")
+            blackLayer.Size = UDim2.fromScale(1, 1)
+            blackLayer.BackgroundColor3 = Color3.new(0, 0, 0)
+            blackLayer.Parent = sv
+            makeCorner(blackLayer, 8)
+
+            local blackGradient = Instance.new("UIGradient")
+            blackGradient.Color = ColorSequence.new(Color3.new(0, 0, 0), Color3.new(0, 0, 0))
+            blackGradient.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(1, 0),
+            })
+            blackGradient.Rotation = 90
+            blackGradient.Parent = blackLayer
+
+            local svCursor = Instance.new("Frame")
+            svCursor.Size = UDim2.fromOffset(12, 12)
+            svCursor.AnchorPoint = Vector2.new(0.5, 0.5)
+            svCursor.BackgroundColor3 = Color3.new(1, 1, 1)
+            svCursor.Parent = sv
+            makeCorner(svCursor, 999)
+            makeStroke(svCursor, Color3.fromRGB(15, 15, 15), 0.35)
+
+            local hueBar = Instance.new("Frame")
+            hueBar.Size = UDim2.new(0, 18, 0, 120)
+            hueBar.Position = UDim2.new(1, -30, 0, 8)
+            hueBar.Parent = panel
+            makeCorner(hueBar, 8)
+
+            local hueGradient = Instance.new("UIGradient")
+            hueGradient.Rotation = 90
+            hueGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0.00, Color3.fromRGB(255, 0, 0)),
+                ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)),
+                ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)),
+                ColorSequenceKeypoint.new(0.50, Color3.fromRGB(0, 255, 255)),
+                ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)),
+                ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)),
+                ColorSequenceKeypoint.new(1.00, Color3.fromRGB(255, 0, 0)),
+            })
+            hueGradient.Parent = hueBar
+
+            local hueCursor = Instance.new("Frame")
+            hueCursor.Size = UDim2.new(1, 4, 0, 4)
+            hueCursor.AnchorPoint = Vector2.new(0.5, 0.5)
+            hueCursor.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            hueCursor.Parent = hueBar
+            makeCorner(hueCursor, 999)
+            makeStroke(hueCursor, Color3.fromRGB(35, 35, 35), 0.35)
+
+            local svHit = makeButton(sv)
+            svHit.Size = UDim2.fromScale(1, 1)
+
+            local hueHit = makeButton(hueBar)
+            hueHit.Size = UDim2.fromScale(1, 1)
+
+            local function updateVisuals(emit)
+                currentColor = Color3.fromHSV(h, s, v)
+                preview.BackgroundColor3 = currentColor
+                hexLabel.Text = colorToHex(currentColor)
+                sv.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+                svCursor.Position = UDim2.new(s, 0, 1 - v, 0)
+                hueCursor.Position = UDim2.new(0.5, 0, h, 0)
+                if emit and data.Callback then
+                    data.Callback(currentColor)
+                end
+            end
+
+            local function setFromSV(inputPos)
+                local x = clamp01((inputPos.X - sv.AbsolutePosition.X) / math.max(sv.AbsoluteSize.X, 1))
+                local y = clamp01((inputPos.Y - sv.AbsolutePosition.Y) / math.max(sv.AbsoluteSize.Y, 1))
+                s = x
+                v = 1 - y
+                updateVisuals(true)
+            end
+
+            local function setFromHue(inputPos)
+                h = clamp01((inputPos.Y - hueBar.AbsolutePosition.Y) / math.max(hueBar.AbsoluteSize.Y, 1))
+                updateVisuals(true)
+            end
+
+            svHit.MouseButton1Down:Connect(function()
+                dragMode = "sv"
+                setFromSV(UserInputService:GetMouseLocation())
+            end)
+
+            hueHit.MouseButton1Down:Connect(function()
+                dragMode = "hue"
+                setFromHue(UserInputService:GetMouseLocation())
+            end)
+
+            table.insert(menuRef.Connections, UserInputService.InputChanged:Connect(function(input)
+                if not dragMode then
+                    return
+                end
+                if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
+                    return
+                end
+                if dragMode == "sv" then
+                    setFromSV(input.Position)
+                else
+                    setFromHue(input.Position)
+                end
+            end))
+
+            table.insert(menuRef.Connections, UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragMode = nil
+                end
+            end))
+
+            local expandedHeight = 136
+            headerButton.MouseButton1Click:Connect(function()
+                expanded = not expanded
+                if expanded then
+                    tween(panel, 0.2, { Size = UDim2.new(1, -12, 0, expandedHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
+                else
+                    tween(panel, 0.2, { Size = UDim2.new(1, -12, 0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
+                end
+            end)
+
+            updateVisuals(false)
+
+            return {
+                Set = function(color)
+                    local newH, newS, newV = Color3.toHSV(color)
+                    h, s, v = newH, newS, newV
+                    updateVisuals(true)
+                end,
+                Get = function()
+                    return currentColor
+                end,
+            }
+        end
+
+        function api:AddKeybind(data)
+            data = data or {}
+            local currentKey = data.Default or Enum.KeyCode.Unknown
+            local listening = false
+
+            local row = makeRow(data.Height)
+            local button = makeButton(row)
+            button.Size = UDim2.fromScale(1, 1)
+            pressAnimation(button)
+
+            local title = makeLabel(row, data.Text or "Keybind", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+            title.Size = UDim2.new(1, -120, 1, 0)
+            title.Position = UDim2.fromOffset(12, 0)
+
+            local keyLabel = makeLabel(row, keyToText(currentKey), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
+            keyLabel.Size = UDim2.new(0, 90, 1, 0)
+            keyLabel.Position = UDim2.new(1, -102, 0, 0)
+
+            local function setKey(newKey, trigger)
+                if typeof(newKey) ~= "EnumItem" or newKey.EnumType ~= Enum.KeyCode then
+                    return
+                end
+                currentKey = newKey
+                keyLabel.Text = keyToText(currentKey)
+                if trigger and data.OnChanged then
+                    data.OnChanged(currentKey)
+                end
+            end
+
+            button.MouseButton1Click:Connect(function()
+                listening = true
+                keyLabel.Text = "..."
+            end)
+
+            table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
+                if input.UserInputType ~= Enum.UserInputType.Keyboard then
+                    return
+                end
+
+                if listening then
+                    listening = false
+                    if input.KeyCode == Enum.KeyCode.Escape then
+                        setKey(Enum.KeyCode.Unknown, true)
+                    else
+                        setKey(input.KeyCode, true)
+                    end
+                    return
+                end
+
+                if UserInputService:GetFocusedTextBox() then
+                    return
+                end
+                if currentKey ~= Enum.KeyCode.Unknown and input.KeyCode == currentKey then
+                    if data.Callback then
+                        data.Callback(currentKey)
+                    end
+                end
+            end))
+
+            return {
+                Set = function(newKey)
+                    setKey(newKey, false)
+                end,
+                Get = function()
+                    return currentKey
                 end,
             }
         end
