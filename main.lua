@@ -1,4 +1,4 @@
--- 42
+-- 4
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -118,6 +118,11 @@ local function tweenDescendants(root, speed, mode)
             tween(obj, speed, { BackgroundTransparency = target })
         end
 
+        if obj:IsA("ScrollingFrame") then
+            local target = (mode == "hide") and 1 or (obj:GetAttribute("OrigScrollBar") or 0)
+            tween(obj, speed, { ScrollBarImageTransparency = target })
+        end
+
         if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
             tween(obj, speed, { ImageTransparency = (mode == "hide") and 1 or 0 })
         end
@@ -137,6 +142,10 @@ local function cacheOriginalTransparency(root)
     for _, obj in ipairs(root:GetDescendants()) do
         if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") or obj:IsA("ScrollingFrame") then
             obj:SetAttribute("OrigBG", obj.BackgroundTransparency)
+        end
+
+        if obj:IsA("ScrollingFrame") then
+            obj:SetAttribute("OrigScrollBar", obj.ScrollBarImageTransparency)
         end
 
         if obj:IsA("UIStroke") then
@@ -517,6 +526,7 @@ function iOSMenu:AddTab(tabSettings)
     local pageLayout = Instance.new("UIListLayout")
     pageLayout.Padding = UDim.new(0, 8)
     pageLayout.Parent = page
+    cacheOriginalTransparency(page)
 
     local tabButton = makeButton(self.TabsContainer)
     pressAnimation(tabButton)
