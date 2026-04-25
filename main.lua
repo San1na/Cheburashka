@@ -1,3 +1,4 @@
+--1
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -100,6 +101,10 @@ end
 
 local function tweenDescendants(root, speed, props)
     for _, obj in ipairs(root:GetDescendants()) do
+        if obj:IsA("UIStroke") or obj:IsA("UICorner") or obj:IsA("UIListLayout") then
+            continue
+        end
+
         if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
             if props.TextTransparency then
                 tween(obj, speed, { TextTransparency = props.TextTransparency })
@@ -358,38 +363,78 @@ function iOSMenu:SetVisible(state)
     self._visibilityToken = self._visibilityToken + 1
     local token = self._visibilityToken
     self.Visible = state
+
     if state then
         self.Holder.Visible = true
+
+        -- стартовое состояние
         self.ContentGroup.Position = UDim2.fromOffset(0, 8)
         self.ContentScale.Scale = 0.985
         self.Holder.Size = UDim2.fromOffset(self.Settings.Width * 0.94, self.Settings.Height * 0.94)
         self.HolderScale.Scale = 0.97
         self.Holder.BackgroundTransparency = 1
+
+        -- скрываем весь контент перед анимацией
+        tweenDescendants(self.Holder, 0, {
+            BackgroundTransparency = 1,
+            TextTransparency = 1,
+            ImageTransparency = 1
+        })
+
+        -- анимация появления
         tween(self.Holder, self.Settings.AnimationSpeed, {
             Size = UDim2.fromOffset(self.Settings.Width, self.Settings.Height),
             BackgroundTransparency = self.Settings.BackgroundTransparency,
         }, Enum.EasingStyle.Back)
-        tween(self.HolderScale, self.Settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back)
-        tween(self.ContentGroup, self.Settings.AnimationSpeed, { Position = UDim2.fromOffset(0, 0) }, Enum.EasingStyle.Quint)
-        tween(self.ContentScale, self.Settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Quint)
+
+        tween(self.HolderScale, self.Settings.AnimationSpeed, {
+            Scale = 1
+        }, Enum.EasingStyle.Back)
+
+        tween(self.ContentGroup, self.Settings.AnimationSpeed, {
+            Position = UDim2.fromOffset(0, 0)
+        }, Enum.EasingStyle.Quint)
+
+        tween(self.ContentScale, self.Settings.AnimationSpeed, {
+            Scale = 1
+        }, Enum.EasingStyle.Quint)
+
+        -- плавно показываем весь UI
+        tweenDescendants(self.Holder, self.Settings.AnimationSpeed, {
+            BackgroundTransparency = 0,
+            TextTransparency = 0,
+            ImageTransparency = 0
+        })
+
     else
         local hideDuration = self.Settings.AnimationSpeed * 0.9
-        for _, popupRef in ipairs(self._colorPopups) do
-            if popupRef and popupRef.CloseInstant then
-                popupRef:CloseInstant()
-            end
-        end
+
+        -- плавно скрываем ВСЁ
+        tweenDescendants(self.Holder, hideDuration, {
+            BackgroundTransparency = 1,
+            TextTransparency = 1,
+            ImageTransparency = 1
+        })
+
         tween(self.Holder, hideDuration, {
             Size = UDim2.fromOffset(self.Settings.Width * 0.94, self.Settings.Height * 0.94),
             BackgroundTransparency = 1,
         }, Enum.EasingStyle.Quad)
-        tween(self.HolderScale, hideDuration, { Scale = 0.97 }, Enum.EasingStyle.Quad)
-        tween(self.ContentGroup, hideDuration, { Position = UDim2.fromOffset(0, 8) }, Enum.EasingStyle.Quint)
-        tween(self.ContentScale, hideDuration, { Scale = 0.985 }, Enum.EasingStyle.Quint)
+
+        tween(self.HolderScale, hideDuration, {
+            Scale = 0.97
+        }, Enum.EasingStyle.Quad)
+
+        tween(self.ContentGroup, hideDuration, {
+            Position = UDim2.fromOffset(0, 8)
+        }, Enum.EasingStyle.Quint)
+
+        tween(self.ContentScale, hideDuration, {
+            Scale = 0.985
+        }, Enum.EasingStyle.Quint)
+
         task.delay(hideDuration, function()
-            if token ~= self._visibilityToken then
-                return
-            end
+            if token ~= self._visibilityToken then return end
             if self.Holder then
                 self.Holder.Visible = false
             end
@@ -910,40 +955,50 @@ function iOSMenu:AddTab(tabSettings)
                 updateVisuals(true)
             end
 
-            local function openPopup()
-                for _, popupRef in ipairs(menuRef._colorPopups) do
-                    if popupRef and popupRef ~= popupApi and popupRef.CloseInstant then
-                        popupRef:CloseInstant()
-                    end
-                end
-                updatePopupPosition()
-popup.Visible = true
-popup.BackgroundTransparency = 1
-popupStroke.Transparency = 1
-popupScale.Scale = 0.96
+            local function resetDescendants(root)
+    for _, obj in ipairs(root:GetDescendants()) do
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            obj.TextTransparency = 1
+        end
 
-tweenDescendants(popup, 0, {
-    BackgroundTransparency = 1,
-    TextTransparency = 1,
-    ImageTransparency = 1
-})
+        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+            obj.BackgroundTransparency = 1
+        end
 
-tweenDescendants(popup, 0.16, {
-    BackgroundTransparency = 0,
-    TextTransparency = 0,
-    ImageTransparency = 0
-})
-                sv.BackgroundTransparency = 0
-                whiteLayer.BackgroundTransparency = 0
-                blackLayer.BackgroundTransparency = 0
-                hueBar.BackgroundTransparency = 0
-                svCursor.BackgroundTransparency = 0
-                hueCursor.BackgroundTransparency = 0
-                tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
-                tween(popup, 0.16, { BackgroundTransparency = 0.04 }, Enum.EasingStyle.Quint)
-                tween(popupStroke, 0.16, { Transparency = 0.35 }, Enum.EasingStyle.Quint)
-                isOpen = true
-            end
+        if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+            obj.ImageTransparency = 1
+        end
+    end
+end
+            
+local function openPopup()
+    for _, popupRef in ipairs(menuRef._colorPopups) do
+        if popupRef and popupRef ~= popupApi and popupRef.CloseInstant then
+            popupRef:CloseInstant()
+        end
+    end
+
+    updatePopupPosition()
+
+    popup.Visible = true
+    popup.BackgroundTransparency = 1
+    popupStroke.Transparency = 1
+    popupScale.Scale = 0.96
+
+    resetDescendants(popup)
+
+    tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
+    tween(popup, 0.16, { BackgroundTransparency = 0.04 }, Enum.EasingStyle.Quint)
+    tween(popupStroke, 0.16, { Transparency = 0.35 }, Enum.EasingStyle.Quint)
+
+    tweenDescendants(popup, 0.16, {
+        BackgroundTransparency = 0,
+        TextTransparency = 0,
+        ImageTransparency = 0
+    })
+
+    isOpen = true
+end
 
             local function closePopup()
                 if not isOpen then
