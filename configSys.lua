@@ -1,3 +1,4 @@
+-- 22
 local HttpService = game:GetService("HttpService")
 
 local ConfigSys = {}
@@ -121,16 +122,77 @@ function ConfigSys:_buildPath(configName)
     return string.format("%s/%s%s", self.FolderName, safe, self.FileExtension), safe
 end
 
+function ConfigSys:_manifestPath()
+    return string.format("%s/_manifest%s", self.FolderName, self.FileExtension)
+end
+
+function ConfigSys:_readManifest()
+    if not hasFS() then
+        return {}
+    end
+
+    local path = self:_manifestPath()
+    if not isfile(path) then
+        return {}
+    end
+
+    local ok, decoded = pcall(function()
+        return HttpService:JSONDecode(readfile(path))
+    end)
+    if not ok or typeof(decoded) ~= "table" then
+        return {}
+    end
+
+    local out = {}
+    local seen = {}
+    for _, name in ipairs(decoded) do
+        local clean = sanitizeName(name)
+        if clean ~= "" and not seen[clean] then
+            seen[clean] = true
+            table.insert(out, clean)
+        end
+    end
+
+    table.sort(out)
+    return out
+end
+
+function ConfigSys:_writeManifest(list)
+    local ok = ensureFolder(self.FolderName)
+    if not ok then
+        return false
+    end
+
+    local path = self:_manifestPath()
+    writefile(path, HttpService:JSONEncode(list))
+    return true
+end
+
 function ConfigSys:SaveConfig(configName, data)
     local ok, err = ensureFolder(self.FolderName)
     if not ok then
         return false, err
     end
 
-    local path = self:_buildPath(configName)
+    local path, safeName = self:_buildPath(configName)
     local payload = serialize(data)
     local encoded = HttpService:JSONEncode(payload)
     writefile(path, encoded)
+
+    local manifest = self:_readManifest()
+    local exists = false
+    for _, name in ipairs(manifest) do
+        if name == safeName then
+            exists = true
+            break
+        end
+    end
+    if not exists then
+        table.insert(manifest, safeName)
+        table.sort(manifest)
+        self:_writeManifest(manifest)
+    end
+
     return true, path
 end
 
@@ -167,29 +229,55 @@ function ConfigSys:DeleteConfig(configName)
     end
 
     delfile(path)
+
+    local _, safeName = self:_buildPath(configName)
+    local manifest = self:_readManifest()
+    local nextManifest = {}
+    for _, name in ipairs(manifest) do
+        if name ~= safeName then
+            table.insert(nextManifest, name)
+        end
+    end
+    self:_writeManifest(nextManifest)
+
     return true, path
 end
 
 function ConfigSys:ListConfigs()
-    if typeof(listfiles) ~= "function" then
-        return {}
-    end
-
-    local ok, files = pcall(function()
-        return listfiles(self.FolderName)
-    end)
-    if not ok then
-        return {}
-    end
-
+    local seen = {}
     local out = {}
-    for _, filePath in ipairs(files) do
-        local fileName = filePath:match("[^/\\]+$") or filePath
-        if fileName:sub(-#self.FileExtension) == self.FileExtension then
-            table.insert(out, fileName:sub(1, #fileName - #self.FileExtension))
+
+    for _, name in ipairs(self:_readManifest()) do
+        if not seen[name] then
+            seen[name] = true
+            table.insert(out, name)
         end
     end
+
+    if typeof(listfiles) == "function" then
+        local ok, files = pcall(function()
+            return listfiles(self.FolderName)
+        end)
+
+        if ok and typeof(files) == "table" then
+            for _, filePath in ipairs(files) do
+                local fileName = filePath:match("[^/\\]+$") or filePath
+                if fileName:sub(-#self.FileExtension) == self.FileExtension then
+                    local cfgName = fileName:sub(1, #fileName - #self.FileExtension)
+                    if cfgName ~= "_manifest" and not seen[cfgName] then
+                        seen[cfgName] = true
+                        table.insert(out, cfgName)
+                    end
+                end
+            end
+        end
+    end
+
     table.sort(out)
+
+    -- Keep manifest synced so ListConfigs still works even if listfiles is blocked.
+    self:_writeManifest(out)
+
     return out
 end
 
