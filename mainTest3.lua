@@ -7,8 +7,6 @@ local Library = {}
 Library.__index = Library
 
 Library.Defaults = {
-    Name = "Project X",
-    Subtitle = "Loaded",
     Parent = nil,
     Keybind = Enum.KeyCode.RightShift,
     Width = 620,
