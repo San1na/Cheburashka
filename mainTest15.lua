@@ -1022,10 +1022,6 @@ function Library:AddTab(tabSettings)
             popupScale.Scale = 0.96
             popupScale.Parent = popup
 
-            local popupScale = Instance.new("UIScale")
-            popupScale.Scale = 0.96
-            popupScale.Parent = popup
-
             local function getPopupWidth()
                 return math.max(hitBg.AbsoluteSize.X, 140)
             end
@@ -1274,6 +1270,10 @@ function Library:AddTab(tabSettings)
             panelLayout.Padding = UDim.new(0, 2)
             panelLayout.Parent = popup
 
+            local popupScale = Instance.new("UIScale")
+            popupScale.Scale = 0.96
+            popupScale.Parent = popup
+
             local function getPopupWidth()
                 return math.max(hitBg.AbsoluteSize.X, 180)
             end
@@ -1410,7 +1410,7 @@ function Library:AddTab(tabSettings)
                         local optionButton = Instance.new("TextButton")
                         optionButton.AutoButtonColor = false
                         optionButton.Text = ""
-                        optionButton.BackgroundTransparency = 1
+                        optionButton.BackgroundTransparency = 0
                         optionButton.BackgroundColor3 = style.ItemColor
                         optionButton.Size = UDim2.new(1, 0, 0, 26)
                         optionButton.ZIndex = 202
