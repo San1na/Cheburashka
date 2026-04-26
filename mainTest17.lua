@@ -999,7 +999,7 @@ function Library:AddTab(tabSettings)
             local popup = Instance.new("Frame")
             popup.Visible = false
             popup.ClipsDescendants = true
-            popup.BackgroundColor3 = style.SurfaceColor
+            popup.BackgroundColor3 = style.ItemColor
             popup.BackgroundTransparency = 1
             popup.ZIndex = 200
             popup.Parent = menuRef.Root
@@ -1008,10 +1008,10 @@ function Library:AddTab(tabSettings)
             popupStroke.ZIndex = 201
 
             local popupPad = Instance.new("UIPadding")
-            popupPad.PaddingTop = UDim.new(0, 4)
-            popupPad.PaddingBottom = UDim.new(0, 4)
-            popupPad.PaddingLeft = UDim.new(0, 4)
-            popupPad.PaddingRight = UDim.new(0, 4)
+            popupPad.PaddingTop = UDim.new(0, 0)
+            popupPad.PaddingBottom = UDim.new(0, 0)
+            popupPad.PaddingLeft = UDim.new(0, 0)
+            popupPad.PaddingRight = UDim.new(0, 0)
             popupPad.Parent = popup
 
             local panelLayout = Instance.new("UIListLayout")
@@ -1127,7 +1127,7 @@ function Library:AddTab(tabSettings)
                         optionButton.Size = UDim2.new(1, 0, 0, 26)
                         optionButton.ZIndex = 202
                         optionButton.Parent = popup
-                        makeCorner(optionButton, 4)
+                        makeCorner(optionButton, 0)
 
                         local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
                         optionText.Size = UDim2.fromScale(1, 1)
@@ -1145,7 +1145,7 @@ function Library:AddTab(tabSettings)
                         end)
                     end
                 end
-                optionsHeight = (optionCount * 26) + (math.max(optionCount - 1, 0) * 2) + 8
+                optionsHeight = optionCount * 26
                 if optionRows[selected] == nil then
                     for optionName in pairs(optionRows) do
                         selected = optionName
