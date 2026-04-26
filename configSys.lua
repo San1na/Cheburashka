@@ -1,26 +1,22 @@
--- 44
+-- 42
 local HttpService = game:GetService("HttpService")
 
 local ConfigSys = {}
 ConfigSys.__index = ConfigSys
 
 local function hasFS()
-    return typeof(isfolder) == "function"
-        and typeof(makefolder) == "function"
-        and typeof(isfile) == "function"
-        and typeof(writefile) == "function"
-        and typeof(readfile) == "function"
+    return typeof(writefile) == "function" and typeof(readfile) == "function"
 end
 
 local function ensureFolder(folder)
     if not hasFS() then
-        return false, "Executor filesystem is not available"
+        return false, "FS unavailable"
     end
-
-    if not isfolder(folder) then
-        makefolder(folder)
+    if typeof(isfolder) == "function" and typeof(makefolder) == "function" then
+        if not isfolder(folder) then
+            pcall(makefolder, folder)
+        end
     end
-
     return true
 end
 
@@ -51,9 +47,7 @@ local function serialize(value, visited)
     end
 
     if t == "table" then
-        if visited[value] then
-            return nil
-        end
+        if visited[value] then return nil end
         visited[value] = true
 
         local out = {}
@@ -73,9 +67,7 @@ local function serialize(value, visited)
 end
 
 local function deserialize(value)
-    if typeof(value) ~= "table" then
-        return value
-    end
+    if typeof(value) ~= "table" then return value end
 
     if value.__type == "Color3" then
         return Color3.new(value.r, value.g, value.b)
@@ -98,7 +90,6 @@ end
 
 function ConfigSys.new(options)
     options = options or {}
-
     local self = setmetatable({}, ConfigSys)
     self.FolderName = sanitizeName(options.FolderName or "iOSMenuConfigs")
     self.FileExtension = options.FileExtension or ".json"
@@ -106,11 +97,7 @@ function ConfigSys.new(options)
     self.AutoLoadKey = options.AutoLoadKey or "autoload"
     self.LastUsedKey = options.LastUsedKey or "last_used"
 
-    local ok, err = ensureFolder(self.FolderName)
-    if not ok then
-        warn("[ConfigSys] " .. err)
-    end
-
+    ensureFolder(self.FolderName)
     return self
 end
 
@@ -137,46 +124,35 @@ function ConfigSys:_metaPath()
 end
 
 function ConfigSys:_readJson(path)
-    if not hasFS() or not isfile(path) then
-        return nil
-    end
+    if not hasFS() then return nil end
+    if typeof(isfile) == "function" and not isfile(path) then return nil end
 
     local ok, decoded = pcall(function()
         return HttpService:JSONDecode(readfile(path))
     end)
-    if ok then
-        return decoded
-    end
+    if ok then return decoded end
     return nil
 end
 
 function ConfigSys:_writeJson(path, data)
     local ok, err = ensureFolder(self.FolderName)
-    if not ok then
-        return false, err
-    end
+    if not ok then return false, err end
 
     local success, encoded = pcall(function()
         return HttpService:JSONEncode(data)
     end)
-    if not success then
-        return false, "JSON encode failed"
-    end
+    if not success then return false, "JSON encode failed" end
 
     local writeOk, writeErr = pcall(function()
         writefile(path, encoded)
     end)
-    if not writeOk then
-        return false, tostring(writeErr)
-    end
+    if not writeOk then return false, tostring(writeErr) end
     return true
 end
 
 function ConfigSys:_readManifest()
     local decoded = self:_readJson(self:_manifestPath())
-    if typeof(decoded) ~= "table" then
-        return {}
-    end
+    if typeof(decoded) ~= "table" then return {} end
 
     local out = {}
     local seen = {}
@@ -197,9 +173,7 @@ end
 
 function ConfigSys:_readMeta()
     local decoded = self:_readJson(self:_metaPath())
-    if typeof(decoded) ~= "table" then
-        return {}
-    end
+    if typeof(decoded) ~= "table" then return {} end
     return decoded
 end
 
@@ -216,24 +190,18 @@ end
 function ConfigSys:GetMeta(key, defaultValue)
     local meta = self:_readMeta()
     local found = meta[tostring(key)]
-    if found == nil then
-        return defaultValue
-    end
+    if found == nil then return defaultValue end
     return found
 end
 
 function ConfigSys:SaveConfig(configName, data)
     local ok, err = ensureFolder(self.FolderName)
-    if not ok then
-        return false, err
-    end
+    if not ok then return false, err end
 
     local path, safeName = self:_buildPath(configName)
     local payload = serialize(data)
     local success, writeErr = self:_writeJson(path, payload)
-    if not success then
-        return false, writeErr
-    end
+    if not success then return false, writeErr end
 
     local manifest = self:_readManifest()
     local exists = false
@@ -254,35 +222,21 @@ function ConfigSys:SaveConfig(configName, data)
 end
 
 function ConfigSys:LoadConfig(configName)
-    if not hasFS() then
-        return nil, "Executor filesystem is not available"
-    end
+    if not hasFS() then return nil, "FS unavailable" end
 
     local path, safeName = self:_buildPath(configName)
-    if not isfile(path) then
-        return nil, "Config not found: " .. path
-    end
-
     local decoded = self:_readJson(path)
-    if decoded == nil then
-        return nil, "Invalid JSON in config"
-    end
+    if decoded == nil then return nil, "Invalid or not found" end
 
     self:SetLastUsedConfig(safeName)
     return deserialize(decoded), path
 end
 
 function ConfigSys:DeleteConfig(configName)
-    if typeof(delfile) ~= "function" then
-        return false, "delfile is not supported by this executor"
-    end
+    if typeof(delfile) ~= "function" then return false, "delfile unsupported" end
 
     local path, safeName = self:_buildPath(configName)
-    if not isfile(path) then
-        return false, "Config not found"
-    end
-
-    delfile(path)
+    pcall(delfile, path)
 
     local manifest = self:_readManifest()
     local nextManifest = {}
@@ -321,12 +275,9 @@ function ConfigSys:ListConfigs()
     end
 
     local function collectFromFileList(files)
-        if typeof(files) ~= "table" then
-            return
-        end
-
+        if typeof(files) ~= "table" then return end
         for _, filePath in ipairs(files) do
-            local fileName = filePath:match("[^/\\]+$") or filePath
+            local fileName = tostring(filePath):match("[^/\\]+$") or tostring(filePath)
             if fileName:sub(-#self.FileExtension) == self.FileExtension then
                 local cfgName = fileName:sub(1, #fileName - #self.FileExtension)
                 collectName(cfgName)
@@ -335,54 +286,39 @@ function ConfigSys:ListConfigs()
     end
 
     if typeof(listfiles) == "function" then
-        local tried = {
+        local paths = {
             self.FolderName,
             self.FolderName .. "/",
             "./" .. self.FolderName,
-            "./" .. self.FolderName .. "/",
+            "./" .. self.FolderName .. "/"
         }
-
-        for _, path in ipairs(tried) do
-            local ok, files = pcall(function()
-                return listfiles(path)
-            end)
-            if ok then
-                collectFromFileList(files)
-            end
+        for _, path in ipairs(paths) do
+            pcall(function() collectFromFileList(listfiles(path)) end)
         end
 
-        local okRoot, rootFiles = pcall(function()
-            return listfiles("")
-        end)
-        if okRoot and typeof(rootFiles) == "table" then
-            local needleA = self.FolderName .. "/"
-            local needleB = self.FolderName .. "\\"
-            local filtered = {}
-            for _, filePath in ipairs(rootFiles) do
-                local normalized = tostring(filePath)
-                if normalized:find(needleA, 1, true) or normalized:find(needleB, 1, true) then
-                    table.insert(filtered, normalized)
+        pcall(function()
+            local rootFiles = listfiles("")
+            if typeof(rootFiles) == "table" then
+                local needleA = self.FolderName .. "/"
+                local needleB = self.FolderName .. "\\"
+                local filtered = {}
+                for _, filePath in ipairs(rootFiles) do
+                    local normalized = tostring(filePath)
+                    if normalized:find(needleA, 1, true) or normalized:find(needleB, 1, true) then
+                        table.insert(filtered, normalized)
+                    end
                 end
+                collectFromFileList(filtered)
+                collectFromFileList(rootFiles)
             end
-            collectFromFileList(filtered)
-        end
+        end)
     end
 
     local autoName = self:GetAutoLoadName(nil)
-    if autoName then
-        local path = self:_buildPath(autoName)
-        if hasFS() and isfile(path) then
-            collectName(autoName)
-        end
-    end
+    if autoName then collectName(autoName) end
 
     local lastUsed = self:GetLastUsedConfig(nil)
-    if lastUsed then
-        local path = self:_buildPath(lastUsed)
-        if hasFS() and isfile(path) then
-            collectName(lastUsed)
-        end
-    end
+    if lastUsed then collectName(lastUsed) end
 
     table.sort(out)
     self:_writeManifest(out)
@@ -407,9 +343,7 @@ end
 
 function ConfigSys:LoadAutoLoad()
     local auto = self:GetAutoLoadName(nil)
-    if not auto then
-        return nil, "Autoload is not set"
-    end
+    if not auto then return nil, "Autoload not set" end
     return self:LoadConfig(auto)
 end
 
