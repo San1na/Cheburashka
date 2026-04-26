@@ -1062,6 +1062,7 @@ function Library:AddTab(tabSettings)
             local function updateStyles()
                 for optionName, ref in pairs(optionRows) do
                     local active = (selected == optionName)
+                    ref.Button:SetAttribute("OrigBG", active and 0 or 1)
                     tween(ref.Text, 0.12, { TextColor3 = active and style.AccentColor or style.SubTextColor })
                     tween(ref.Button, 0.12, { BackgroundTransparency = active and 0 or 1 })
                 end
@@ -1267,7 +1268,7 @@ function Library:AddTab(tabSettings)
             popupPad.Parent = popup
 
             local panelLayout = Instance.new("UIListLayout")
-            panelLayout.Padding = UDim.new(0, 2)
+            panelLayout.Padding = UDim.new(0, 0)
             panelLayout.Parent = popup
 
             local popupScale = Instance.new("UIScale")
