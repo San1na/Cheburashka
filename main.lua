@@ -1,4 +1,4 @@
---555
+-- 33
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -287,21 +287,6 @@ function Library.new(config)
 
     local root = getParent(settings.Parent)
 
-    local holder = Instance.new("Frame")
-    holder.Name = "Window"
-    holder.AnchorPoint = Vector2.new(0.5, 0.5)
-    holder.Position = UDim2.fromScale(0.5, 0.5)
-    holder.Size = UDim2.fromOffset(settings.Width, settings.Height)
-    holder.BackgroundColor3 = settings.BackgroundColor
-    holder.ClipsDescendants = true
-    holder.Parent = root
-    makeCorner(holder, settings.CornerRadius)
-    makeStroke(holder, settings.BorderColor, 0)
-
-    local holderScale = Instance.new("UIScale")
-    holderScale.Scale = 1
-    holderScale.Parent = holder
-
 local resizeHandle
     if settings.Resizable then
         resizeHandle = Instance.new("Frame")
@@ -313,6 +298,8 @@ local resizeHandle
         resizeHandle.BackgroundTransparency = 1
         resizeHandle.ZIndex = 100
         resizeHandle.Parent = holder
+        makeCorner(resizeHandle, 4)
+        makeStroke(resizeHandle, settings.BorderColor, 0.6)
 
         local resizeButton = makeButton(resizeHandle)
         resizeButton.Size = UDim2.fromScale(1, 1)
@@ -331,34 +318,6 @@ local resizeHandle
                 resizeStartHolderPos = holder.Position
             end
         end))
-
-        table.insert(self.Connections, UserInputService.InputChanged:Connect(function(input)
-            if not resizing then return end
-            if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
-
-            local delta = input.Position - resizeStartPos
-            local newWidth = math.clamp(resizeStartSize.X + delta.X, settings.MinWidth, settings.MaxWidth)
-            local newHeight = math.clamp(resizeStartSize.Y + delta.Y, settings.MinHeight, settings.MaxHeight)
-            local widthDelta = newWidth - resizeStartSize.X
-            local heightDelta = newHeight - resizeStartSize.Y
-
-            holder.Size = UDim2.fromOffset(newWidth, newHeight)
-            holder.Position = UDim2.new(
-                resizeStartHolderPos.X.Scale,
-                resizeStartHolderPos.X.Offset + (widthDelta * 0.5),
-                resizeStartHolderPos.Y.Scale,
-                resizeStartHolderPos.Y.Offset + (heightDelta * 0.5)
-            )
-            self.Settings.Width = newWidth
-            self.Settings.Height = newHeight
-        end))
-
-        table.insert(self.Connections, UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                resizing = false
-            end
-        end))
-    end
 
         table.insert(self.Connections, UserInputService.InputChanged:Connect(function(input)
             if not resizing then return end
