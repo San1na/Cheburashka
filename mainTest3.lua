@@ -21,7 +21,7 @@ Library.Defaults = {
     SurfaceColor = Color3.fromRGB(32, 32, 35),
     ItemColor = Color3.fromRGB(45, 45, 50),
     TextColor = Color3.fromRGB(245, 245, 245),
-    SubTextColor = Color3.fromRGB(170, 170, 175),
+    SubTextColor = Color3.fromRGB(180, 180, 185),
     BorderColor = Color3.fromRGB(55, 55, 60),
     Font = Enum.Font.Gotham,
     SmallTextSize = 12,
@@ -209,7 +209,7 @@ function Library.new(config)
     local sidebar = Instance.new("Frame")
     sidebar.Name = "Sidebar"
     sidebar.Size = UDim2.new(0, 160, 1, 0)
-    sidebar.BackgroundColor3 = settings.SidebarColor
+    sidebar.BackgroundTransparency = 1
     sidebar.BorderSizePixel = 0
     sidebar.Parent = holder
 
@@ -486,25 +486,25 @@ function Library:AddTab(tabSettings)
             local text = makeLabel(row, data.Text or "Toggle", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
             text.Size = UDim2.new(1, -76, 1, 0)
 
-            local checkBg = Instance.new("Frame")
-            checkBg.Size = UDim2.fromOffset(18, 18)
-            checkBg.Position = UDim2.new(1, -26, 0.5, -9)
-            checkBg.BackgroundColor3 = style.SurfaceColor
-            checkBg.Parent = row
-            makeCorner(checkBg, 4)
-            makeStroke(checkBg, style.BorderColor, 1)
+            local toggleBg = Instance.new("Frame")
+            toggleBg.Size = UDim2.fromOffset(36, 20)
+            toggleBg.Position = UDim2.new(1, -44, 0.5, -10)
+            toggleBg.BackgroundColor3 = state and style.AccentColor or style.SurfaceColor
+            toggleBg.Parent = row
+            makeCorner(toggleBg, 999)
+            makeStroke(toggleBg, style.BorderColor, 0)
 
-            local checkFill = Instance.new("Frame")
-            checkFill.Size = state and UDim2.fromScale(1, 1) or UDim2.fromScale(0, 0)
-            checkFill.AnchorPoint = Vector2.new(0.5, 0.5)
-            checkFill.Position = UDim2.fromScale(0.5, 0.5)
-            checkFill.BackgroundColor3 = style.AccentColor
-            checkFill.Parent = checkBg
-            makeCorner(checkFill, 4)
+            local knob = Instance.new("Frame")
+            knob.Size = UDim2.fromOffset(16, 16)
+            knob.Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+            knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            knob.Parent = toggleBg
+            makeCorner(knob, 999)
 
             local function setState(nextState)
                 state = nextState
-                tween(checkFill, 0.15, { Size = state and UDim2.fromScale(1, 1) or UDim2.fromScale(0, 0) }, Enum.EasingStyle.Back)
+                tween(toggleBg, 0.2, { BackgroundColor3 = state and style.AccentColor or style.SurfaceColor }, Enum.EasingStyle.Quart)
+                tween(knob, 0.2, { Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8) }, Enum.EasingStyle.Quart)
                 if data.Callback then data.Callback(state) end
             end
 
@@ -846,7 +846,8 @@ function Library:AddTab(tabSettings)
                 local ref = optionRows[option]
                 if not ref then return end
                 local active = states[option] == true
-                tween(ref.CheckFill, 0.15, { Size = active and UDim2.fromScale(1, 1) or UDim2.fromScale(0, 0) }, Enum.EasingStyle.Back)
+                tween(ref.ToggleBg, 0.15, { BackgroundColor3 = active and style.AccentColor or style.SurfaceColor }, Enum.EasingStyle.Quad)
+                tween(ref.Knob, 0.15, { Position = active and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6) }, Enum.EasingStyle.Quad)
                 tween(ref.Text, 0.12, { TextColor3 = active and style.TextColor or style.SubTextColor })
             end
 
@@ -917,26 +918,24 @@ function Library:AddTab(tabSettings)
                         optionText.Position = UDim2.fromOffset(6, 0)
                         optionText.ZIndex = 42
 
-                        local checkBg = Instance.new("Frame")
-                        checkBg.Size = UDim2.fromOffset(14, 14)
-                        checkBg.Position = UDim2.new(1, -22, 0.5, -7)
-                        checkBg.BackgroundColor3 = style.SurfaceColor
-                        checkBg.ZIndex = 42
-                        checkBg.Parent = optionButton
-                        makeCorner(checkBg, 3)
-                        makeStroke(checkBg, style.BorderColor, 1)
+                        local toggleBg = Instance.new("Frame")
+                        toggleBg.Size = UDim2.fromOffset(28, 16)
+                        toggleBg.Position = UDim2.new(1, -34, 0.5, -8)
+                        toggleBg.BackgroundColor3 = style.SurfaceColor
+                        toggleBg.ZIndex = 42
+                        toggleBg.Parent = optionButton
+                        makeCorner(toggleBg, 999)
 
-                        local checkFill = Instance.new("Frame")
-                        checkFill.Size = UDim2.fromScale(0, 0)
-                        checkFill.AnchorPoint = Vector2.new(0.5, 0.5)
-                        checkFill.Position = UDim2.fromScale(0.5, 0.5)
-                        checkFill.BackgroundColor3 = style.AccentColor
-                        checkFill.ZIndex = 43
-                        checkFill.Parent = checkBg
-                        makeCorner(checkFill, 3)
+                        local knob = Instance.new("Frame")
+                        knob.Size = UDim2.fromOffset(12, 12)
+                        knob.Position = UDim2.new(0, 2, 0.5, -6)
+                        knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                        knob.ZIndex = 43
+                        knob.Parent = toggleBg
+                        makeCorner(knob, 999)
 
                         states[optionName] = typeof(defaults) == "table" and defaults[optionName] == true or false
-                        optionRows[optionName] = { Button = optionButton, Text = optionText, CheckBg = checkBg, CheckFill = checkFill }
+                        optionRows[optionName] = { Button = optionButton, Text = optionText, ToggleBg = toggleBg, Knob = knob }
 
                         optionButton.MouseButton1Click:Connect(function()
                             setOption(optionName, not states[optionName], false)
