@@ -276,11 +276,11 @@ function Library.new(config)
         resizeHandle.Size = UDim2.fromOffset(settings.ResizeHandleSize, settings.ResizeHandleSize)
         resizeHandle.Position = UDim2.new(1, -4, 1, -4)
         resizeHandle.BackgroundColor3 = settings.ItemColor
-        resizeHandle.BackgroundTransparency = 0.15
+        resizeHandle.BackgroundTransparency = 1
         resizeHandle.ZIndex = 100
         resizeHandle.Parent = holder
         makeCorner(resizeHandle, 4)
-        makeStroke(resizeHandle, settings.BorderColor, 0)
+        makeStroke(resizeHandle, settings.BorderColor, 0.6)
 
         local h1 = Instance.new("Frame")
         h1.Size = UDim2.fromOffset(7, 1)
@@ -307,12 +307,14 @@ function Library.new(config)
         local resizing = false
         local resizeStartPos
         local resizeStartSize
+        local resizeStartHolderPos
 
         table.insert(self.Connections, resizeButton.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 resizing = true
                 resizeStartPos = input.Position
                 resizeStartSize = holder.AbsoluteSize
+                resizeStartHolderPos = holder.Position
             end
         end))
 
@@ -323,8 +325,16 @@ function Library.new(config)
             local delta = input.Position - resizeStartPos
             local newWidth = math.clamp(resizeStartSize.X + delta.X, settings.MinWidth, settings.MaxWidth)
             local newHeight = math.clamp(resizeStartSize.Y + delta.Y, settings.MinHeight, settings.MaxHeight)
+            local widthDelta = newWidth - resizeStartSize.X
+            local heightDelta = newHeight - resizeStartSize.Y
 
             holder.Size = UDim2.fromOffset(newWidth, newHeight)
+            holder.Position = UDim2.new(
+                resizeStartHolderPos.X.Scale,
+                resizeStartHolderPos.X.Offset + (widthDelta * 0.5),
+                resizeStartHolderPos.Y.Scale,
+                resizeStartHolderPos.Y.Offset + (heightDelta * 0.5)
+            )
             self.Settings.Width = newWidth
             self.Settings.Height = newHeight
         end))
