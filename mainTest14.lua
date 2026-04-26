@@ -1198,9 +1198,27 @@ function Library:AddTab(tabSettings)
             cacheOriginalTransparency(popup)
             cacheOriginalTransparency(row)
             return {
-                Set = function(value, silent) setSelected(value, silent) end,
-                Get = function() return selected end,
-                SetOptions = function(newOptions) rebuild(newOptions) end,
+                Set = function(a, b, c)
+                    local value, silent
+                    if typeof(a) == "table" and a.SetOptions ~= nil and a.Get ~= nil then
+                        value, silent = b, c
+                    else
+                        value, silent = a, b
+                    end
+                    setSelected(value, silent)
+                end,
+                Get = function()
+                    return selected
+                end,
+                SetOptions = function(a, b)
+                    local newOptions
+                    if typeof(a) == "table" and a.SetOptions ~= nil and a.Get ~= nil then
+                        newOptions = b
+                    else
+                        newOptions = a
+                    end
+                    rebuild(newOptions)
+                end,
                 Flag = controlRef and controlRef.Flag or nil,
             }
         end
@@ -1478,14 +1496,33 @@ function Library:AddTab(tabSettings)
             cacheOriginalTransparency(row)
 
             return {
-                Set = function(option, newState, silent) setOption(option, newState, silent) end,
+                Set = function(a, b, c, d)
+                    local option, newState, silent
+                    if typeof(a) == "table" and a.SetOptions ~= nil and a.Get ~= nil then
+                        option, newState, silent = b, c, d
+                    else
+                        option, newState, silent = a, b, c
+                    end
+                    setOption(option, newState, silent)
+                end,
                 Get = function(option)
+                    if typeof(option) == "table" and option.SetOptions ~= nil and option.Get ~= nil then
+                        option = nil
+                    end
                     if option ~= nil then return states[tostring(option)] == true end
                     local out = {}
                     for k, v in pairs(states) do out[k] = v end
                     return out
                 end,
-                SetOptions = function(newOptions, defaults) rebuild(newOptions, defaults) end,
+                SetOptions = function(a, b, c)
+                    local newOptions, defaults
+                    if typeof(a) == "table" and a.SetOptions ~= nil and a.Get ~= nil then
+                        newOptions, defaults = b, c
+                    else
+                        newOptions, defaults = a, b
+                    end
+                    rebuild(newOptions, defaults)
+                end,
                 SetAll = setAll,
                 Flag = controlRef and controlRef.Flag or nil,
             }
