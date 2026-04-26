@@ -1,4 +1,4 @@
--- 22
+-- 44
 local HttpService = game:GetService("HttpService")
 
 local ConfigSys = {}
@@ -245,9 +245,9 @@ function ConfigSys:SaveConfig(configName, data)
     end
     if not exists then
         table.insert(manifest, safeName)
-        table.sort(manifest)
-        self:_writeManifest(manifest)
     end
+    table.sort(manifest)
+    self:_writeManifest(manifest)
 
     self:SetLastUsedConfig(safeName)
     return true, path
@@ -312,6 +312,14 @@ function ConfigSys:ListConfigs()
         end
     end
 
+    local function collectName(rawName)
+        local cfgName = sanitizeName(rawName)
+        if cfgName ~= "" and cfgName ~= "_manifest" and cfgName ~= self.MetaFileName and not seen[cfgName] then
+            seen[cfgName] = true
+            table.insert(out, cfgName)
+        end
+    end
+
     local function collectFromFileList(files)
         if typeof(files) ~= "table" then
             return
@@ -321,10 +329,7 @@ function ConfigSys:ListConfigs()
             local fileName = filePath:match("[^/\\]+$") or filePath
             if fileName:sub(-#self.FileExtension) == self.FileExtension then
                 local cfgName = fileName:sub(1, #fileName - #self.FileExtension)
-                if cfgName ~= "_manifest" and cfgName ~= self.MetaFileName and not seen[cfgName] then
-                    seen[cfgName] = true
-                    table.insert(out, cfgName)
-                end
+                collectName(cfgName)
             end
         end
     end
@@ -363,9 +368,29 @@ function ConfigSys:ListConfigs()
         end
     end
 
+    local autoName = self:GetAutoLoadName(nil)
+    if autoName then
+        local path = self:_buildPath(autoName)
+        if hasFS() and isfile(path) then
+            collectName(autoName)
+        end
+    end
+
+    local lastUsed = self:GetLastUsedConfig(nil)
+    if lastUsed then
+        local path = self:_buildPath(lastUsed)
+        if hasFS() and isfile(path) then
+            collectName(lastUsed)
+        end
+    end
+
     table.sort(out)
     self:_writeManifest(out)
     return out
+end
+
+function ConfigSys:GetConfigNames()
+    return self:ListConfigs()
 end
 
 function ConfigSys:SetAutoLoad(configName)
