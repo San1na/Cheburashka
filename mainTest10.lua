@@ -933,7 +933,7 @@ function Library:AddTab(tabSettings)
             return api:AddToggle(data)
         end
 
-        function api:AddDropdown(data)
+function api:AddDropdown(data)
             data = data or {}
             local options = data.Options or {}
             local selected = data.Default or options[1] or "None"
@@ -1010,6 +1010,8 @@ function Library:AddTab(tabSettings)
             local function setExpanded(state)
                 expanded = state
                 if expanded then
+                    -- ФИКС: Принудительно задаем правильную ширину до начала анимации
+                    popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0)
                     popup.Visible = true
                     refreshPopupPlacement()
                     if not rsConnection then
@@ -1084,7 +1086,13 @@ function Library:AddTab(tabSettings)
                     selected = selected or "None"
                 end
                 valueLabel.Text = tostring(selected)
+                
+                -- Обновляем позицию и сбрасываем размер, если меню закрыто
                 refreshPopupPlacement()
+                if not expanded and hitBg and hitBg.Parent then
+                    popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0)
+                end
+                
                 updateStyles()
             end
 
@@ -1228,6 +1236,8 @@ function Library:AddTab(tabSettings)
             local function setExpanded(state)
                 expanded = state
                 if expanded then
+                    -- ФИКС: Задаем ширину до твина
+                    popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0)
                     popup.Visible = true
                     refreshPopupPlacement()
                     if not rsConnection then
@@ -1324,7 +1334,12 @@ function Library:AddTab(tabSettings)
                     end
                 end
                 optionsHeight = (optionCount * 26) + (math.max(optionCount - 1, 0) * 2) + 8
+                
                 refreshPopupPlacement()
+                if not expanded and hitBg and hitBg.Parent then
+                    popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0)
+                end
+                
                 for optionName in pairs(optionRows) do updateOptionVisual(optionName) end
                 updateSummary()
             end
