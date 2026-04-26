@@ -1,4 +1,4 @@
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/San1na/Cheburashka/refs/heads/main/main.lua"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/San1na/Cheburashka/refs/heads/main/mainTest2.lua"))()
 local ConfigSys = loadstring(game:HttpGet("https://raw.githubusercontent.com/San1na/Cheburashka/refs/heads/main/configSys.lua"))()
 
 local Players = game:GetService("Players")
@@ -560,6 +560,7 @@ local cfgMain = cfgTab:AddSection({
 
 local statusLabel = cfgMain:AddLabel("Selected: default")
 cfgMain:AddLabel("Folder: example")
+local availableCfgLabel = cfgMain:AddLabel("Available: (empty)")
 
 cfgMain:AddLabel("Config Name")
 cfgMain:AddInput({
@@ -573,57 +574,16 @@ cfgMain:AddInput({
     end,
 })
 
-local configSelector
-
-local function containsValue(list, value)
-    for _, item in ipairs(list) do
-        if item == value then
-            return true
-        end
-    end
-    return false
-end
-
 local function rebuildConfigSelector()
     local list = configSystem:ListConfigs()
-    if #list > 0 and not containsValue(list, currentConfigName) then
-        currentConfigName = list[1]
-    end
+    local hasConfigs = #list > 0
 
-    local defaults = {}
-    for _, cfgName in ipairs(list) do
-        defaults[cfgName] = (cfgName == currentConfigName)
-    end
-
-    if configSelector then
-        configSelector:SetOptions(list, defaults)
-    else
-        configSelector = cfgMain:AddMultiBoolean({
-            Text = "Saved Configs",
-            Options = list,
-            Default = defaults,
-            Callback = function(option, state, allStates)
-                if not state then
-                    configSelector:Set(option, true, true)
-                    return
-                end
-
-                for cfgName, enabled in pairs(allStates) do
-                    if cfgName ~= option and enabled then
-                        configSelector:Set(cfgName, false, true)
-                    end
-                end
-
-                currentConfigName = option
-                statusLabel.Text = "Selected: " .. currentConfigName
-            end,
-        })
-    end
-
-    if #list == 0 then
+    if not hasConfigs then
+        availableCfgLabel.Text = "Available: (empty)"
         statusLabel.Text = "No saved configs in /example"
     else
-        statusLabel.Text = "Selected: " .. currentConfigName
+        availableCfgLabel.Text = "Available: " .. table.concat(list, ", ")
+        statusLabel.Text = string.format("Selected: %s (%d)", currentConfigName, #list)
     end
 end
 
@@ -701,8 +661,4 @@ task.spawn(function()
         end
         task.wait(1.5)
     end
-end)
-
-task.delay(1, function()
-    window:SetTitle("Project X", "Loaded")
 end)
