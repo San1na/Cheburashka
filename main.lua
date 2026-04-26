@@ -1,4 +1,4 @@
--- 33
+-- 44
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -287,7 +287,22 @@ function Library.new(config)
 
     local root = getParent(settings.Parent)
 
-local resizeHandle
+    local holder = Instance.new("Frame")
+    holder.Name = "Window"
+    holder.AnchorPoint = Vector2.new(0.5, 0.5)
+    holder.Position = UDim2.fromScale(0.5, 0.5)
+    holder.Size = UDim2.fromOffset(settings.Width, settings.Height)
+    holder.BackgroundColor3 = settings.BackgroundColor
+    holder.ClipsDescendants = true
+    holder.Parent = root
+    makeCorner(holder, settings.CornerRadius)
+    makeStroke(holder, settings.BorderColor, 0)
+
+    local holderScale = Instance.new("UIScale")
+    holderScale.Scale = 1
+    holderScale.Parent = holder
+
+    local resizeHandle
     if settings.Resizable then
         resizeHandle = Instance.new("Frame")
         resizeHandle.Name = "ResizeHandle"
