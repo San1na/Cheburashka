@@ -1089,11 +1089,12 @@ function Library:AddTab(tabSettings)
                     local popupWidth = getPopupWidth()
                     local popupHeight = math.min(optionsHeight, maxPopupHeight)
                     popup.ScrollBarThickness = (optionsHeight > maxPopupHeight) and 3 or 0
-                    popup.Size = UDim2.fromOffset(popupWidth, popupHeight)
+                    popup.Size = UDim2.fromOffset(popupWidth, math.max(0, popupHeight - 12))
                     popup.BackgroundTransparency = 1
                     popupStroke.Transparency = 1
                     popupScale.Scale = 0.96
                     tweenDescendants(popup, 0, "hide")
+                    tween(popup, 0.16, { Size = UDim2.fromOffset(popupWidth, popupHeight) }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                     tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
                     tween(popup, 0.16, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad)
                     tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -1103,12 +1104,18 @@ function Library:AddTab(tabSettings)
                         rsConnection:Disconnect()
                         rsConnection = nil
                     end
+                    local closeWidth = popup.AbsoluteSize.X
+                    local closeHeight = popup.AbsoluteSize.Y
                     tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
+                    tween(popup, 0.12, { Size = UDim2.fromOffset(closeWidth, math.max(0, closeHeight - 12)) }, Enum.EasingStyle.Quad)
                     tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
                     tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
                     tweenDescendants(popup, 0.12, "hide")
                     task.delay(0.12, function()
-                        if popup and popup.Parent and not expanded then popup.Visible = false end
+                        if popup and popup.Parent and not expanded then
+                            popup.Visible = false
+                            popup.Size = UDim2.fromOffset(closeWidth, 0)
+                        end
                     end)
                 end
             end
@@ -1372,11 +1379,12 @@ function Library:AddTab(tabSettings)
                     local popupWidth = getPopupWidth()
                     local popupHeight = math.min(optionsHeight, maxPopupHeight)
                     popup.ScrollBarThickness = (optionsHeight > maxPopupHeight) and 3 or 0
-                    popup.Size = UDim2.fromOffset(popupWidth, popupHeight)
+                    popup.Size = UDim2.fromOffset(popupWidth, math.max(0, popupHeight - 12))
                     popup.BackgroundTransparency = 1
                     popupStroke.Transparency = 1
                     popupScale.Scale = 0.96
                     tweenDescendants(popup, 0, "hide")
+                    tween(popup, 0.16, { Size = UDim2.fromOffset(popupWidth, popupHeight) }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                     tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
                     tween(popup, 0.16, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad)
                     tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
@@ -1386,12 +1394,18 @@ function Library:AddTab(tabSettings)
                         rsConnection:Disconnect()
                         rsConnection = nil
                     end
+                    local closeWidth = popup.AbsoluteSize.X
+                    local closeHeight = popup.AbsoluteSize.Y
                     tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
+                    tween(popup, 0.12, { Size = UDim2.fromOffset(closeWidth, math.max(0, closeHeight - 12)) }, Enum.EasingStyle.Quad)
                     tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
                     tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
                     tweenDescendants(popup, 0.12, "hide")
                     task.delay(0.12, function()
-                        if popup and popup.Parent and not expanded then popup.Visible = false end
+                        if popup and popup.Parent and not expanded then
+                            popup.Visible = false
+                            popup.Size = UDim2.fromOffset(closeWidth, 0)
+                        end
                     end)
                 end
             end
