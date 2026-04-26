@@ -1080,6 +1080,7 @@ function Library:AddTab(tabSettings)
             local function setExpanded(state)
                 expanded = state
                 if expanded then
+                    local openDur = 0.16
                     popup.Visible = true
                     refreshPopupPlacement()
                     if not rsConnection then
@@ -1094,24 +1095,25 @@ function Library:AddTab(tabSettings)
                     popupStroke.Transparency = 1
                     popupScale.Scale = 0.96
                     tweenDescendants(popup, 0, "hide")
-                    tween(popup, 0.16, { Size = UDim2.fromOffset(popupWidth, popupHeight) }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
-                    tween(popup, 0.16, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad)
-                    tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    tweenDescendants(popup, 0.16, "show")
+                    tween(popup, openDur, { Size = UDim2.fromOffset(popupWidth, popupHeight) }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    tween(popupScale, openDur, { Scale = 1 }, Enum.EasingStyle.Back)
+                    tween(popup, openDur, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad)
+                    tween(popupStroke, openDur, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    tweenDescendants(popup, openDur, "show")
                 else
+                    local closeDur = 0.12
                     if rsConnection then
                         rsConnection:Disconnect()
                         rsConnection = nil
                     end
                     local closeWidth = popup.AbsoluteSize.X
                     local closeHeight = popup.AbsoluteSize.Y
-                    tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
-                    tween(popup, 0.12, { Size = UDim2.fromOffset(closeWidth, math.max(0, closeHeight - 12)) }, Enum.EasingStyle.Quad)
-                    tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
-                    tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
-                    tweenDescendants(popup, 0.12, "hide")
-                    task.delay(0.12, function()
+                    tween(popupScale, closeDur, { Scale = 0.96 }, Enum.EasingStyle.Quad)
+                    tween(popup, closeDur, { Size = UDim2.fromOffset(closeWidth, 0) }, Enum.EasingStyle.Quad)
+                    tween(popup, closeDur, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+                    tween(popupStroke, closeDur, { Transparency = 1 }, Enum.EasingStyle.Quad)
+                    tweenDescendants(popup, closeDur, "hide")
+                    task.delay(closeDur, function()
                         if popup and popup.Parent and not expanded then
                             popup.Visible = false
                             popup.Size = UDim2.fromOffset(closeWidth, 0)
@@ -1370,6 +1372,7 @@ function Library:AddTab(tabSettings)
             local function setExpanded(state)
                 expanded = state
                 if expanded then
+                    local openDur = 0.16
                     popup.Visible = true
                     refreshPopupPlacement()
                     if not rsConnection then
@@ -1384,24 +1387,25 @@ function Library:AddTab(tabSettings)
                     popupStroke.Transparency = 1
                     popupScale.Scale = 0.96
                     tweenDescendants(popup, 0, "hide")
-                    tween(popup, 0.16, { Size = UDim2.fromOffset(popupWidth, popupHeight) }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
-                    tween(popup, 0.16, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad)
-                    tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    tweenDescendants(popup, 0.16, "show")
+                    tween(popup, openDur, { Size = UDim2.fromOffset(popupWidth, popupHeight) }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    tween(popupScale, openDur, { Scale = 1 }, Enum.EasingStyle.Back)
+                    tween(popup, openDur, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad)
+                    tween(popupStroke, openDur, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    tweenDescendants(popup, openDur, "show")
                 else
+                    local closeDur = 0.12
                     if rsConnection then
                         rsConnection:Disconnect()
                         rsConnection = nil
                     end
                     local closeWidth = popup.AbsoluteSize.X
                     local closeHeight = popup.AbsoluteSize.Y
-                    tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
-                    tween(popup, 0.12, { Size = UDim2.fromOffset(closeWidth, math.max(0, closeHeight - 12)) }, Enum.EasingStyle.Quad)
-                    tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
-                    tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
-                    tweenDescendants(popup, 0.12, "hide")
-                    task.delay(0.12, function()
+                    tween(popupScale, closeDur, { Scale = 0.96 }, Enum.EasingStyle.Quad)
+                    tween(popup, closeDur, { Size = UDim2.fromOffset(closeWidth, 0) }, Enum.EasingStyle.Quad)
+                    tween(popup, closeDur, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+                    tween(popupStroke, closeDur, { Transparency = 1 }, Enum.EasingStyle.Quad)
+                    tweenDescendants(popup, closeDur, "hide")
+                    task.delay(closeDur, function()
                         if popup and popup.Parent and not expanded then
                             popup.Visible = false
                             popup.Size = UDim2.fromOffset(closeWidth, 0)
