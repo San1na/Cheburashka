@@ -96,23 +96,42 @@ local function tween(instance, speed, props, easingStyle, easingDirection)
     return tw
 end
 
+-- FIX: safe restore for transparencies to prevent random black backgrounds
 local function tweenDescendants(root, speed, mode)
     if not root then return end
     for _, obj in ipairs(root:GetDescendants()) do
-        if obj:IsA("UICorner") or obj:IsA("UIListLayout") or obj:IsA("UIPadding") or obj:IsA("UIGradient") then continue end
+        if obj:IsA("UICorner") or obj:IsA("UIListLayout") or obj:IsA("UIPadding") or obj:IsA("UIGradient") then
+            continue
+        end
+
         if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
             tween(obj, speed, { TextTransparency = (mode == "hide") and 1 or 0 })
         end
+
         if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") or obj:IsA("ScrollingFrame") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-            local target = (mode == "hide") and 1 or (obj:GetAttribute("OrigBG") or 0)
+            if mode == "hide" and obj:GetAttribute("OrigBG") == nil then
+                obj:SetAttribute("OrigBG", obj.BackgroundTransparency)
+            end
+            local target = (mode == "hide") and 1 or obj:GetAttribute("OrigBG")
+            if target == nil then target = 1 end
             tween(obj, speed, { BackgroundTransparency = target })
         end
+
         if obj:IsA("ScrollingFrame") then
-            local target = (mode == "hide") and 1 or (obj:GetAttribute("OrigScrollBar") or 0)
+            if mode == "hide" and obj:GetAttribute("OrigScrollBar") == nil then
+                obj:SetAttribute("OrigScrollBar", obj.ScrollBarImageTransparency)
+            end
+            local target = (mode == "hide") and 1 or obj:GetAttribute("OrigScrollBar")
+            if target == nil then target = 0 end
             tween(obj, speed, { ScrollBarImageTransparency = target })
         end
+
         if obj:IsA("UIStroke") then
-            local target = (mode == "hide") and 1 or (obj:GetAttribute("OrigStroke") or 0)
+            if mode == "hide" and obj:GetAttribute("OrigStroke") == nil then
+                obj:SetAttribute("OrigStroke", obj.Transparency)
+            end
+            local target = (mode == "hide") and 1 or obj:GetAttribute("OrigStroke")
+            if target == nil then target = 0 end
             tween(obj, speed, { Transparency = target })
         end
     end
@@ -263,6 +282,7 @@ function Library.new(config)
     pages.BackgroundTransparency = 1
     pages.Size = UDim2.new(1, -160, 1, 0)
     pages.Position = UDim2.fromOffset(160, 0)
+    pages.ClipsDescendants = true -- FIX: no overflow near rounded window corners
     pages.Parent = holder
 
     self.Root = root
@@ -297,7 +317,7 @@ function Library.new(config)
     table.insert(self.Connections, UserInputService.InputBegan:Connect(function(input)
         if UserInputService:GetFocusedTextBox() then return end
         if self._capturingKeybind then return end
-        
+
         local isKeybindHit = false
         if self.Settings.Keybind.EnumType == Enum.KeyCode and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == self.Settings.Keybind then
             isKeybindHit = true
@@ -375,11 +395,15 @@ function Library:AddTab(tabSettings)
     page.Name = name .. "Page"
     page.BackgroundTransparency = 1
     page.BorderSizePixel = 0
-    page.ScrollBarThickness = 2
+    page.ScrollBarThickness = 3
+    page.ScrollBarImageColor3 = style.BorderColor
+    page.ScrollBarImageTransparency = 0.35
     page.CanvasSize = UDim2.fromOffset(0, 0)
     page.AutomaticCanvasSize = Enum.AutomaticSize.Y
     page.Visible = false
-    page.Size = UDim2.fromScale(1, 1)
+    page.Position = UDim2.fromOffset(0, style.CornerRadius) -- FIX: keep away from rounded top edge
+    page.Size = UDim2.new(1, 0, 1, -(style.CornerRadius * 2)) -- FIX: keep away from rounded bottom edge
+    page.ClipsDescendants = true -- FIX: cut children/scroll visuals cleanly
     page.Parent = self.Pages
     makePadding(page, style.SafeAreaPadding)
 
@@ -511,7 +535,7 @@ function Library:AddTab(tabSettings)
             toggleBg.Position = UDim2.new(1, -44, 0.5, -10)
             toggleBg.BackgroundColor3 = state and style.AccentColor or style.ItemColor
             toggleBg.Parent = row
-            makeCorner(toggleBg, 999)
+            makeCorner(toggleBg, 10) -- FIX: cleaner radius for small toggle
             makeStroke(toggleBg, style.BorderColor, 0)
 
             local knob = Instance.new("Frame")
@@ -519,7 +543,7 @@ function Library:AddTab(tabSettings)
             knob.Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
             knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             knob.Parent = toggleBg
-            makeCorner(knob, 999)
+            makeCorner(knob, 8) -- FIX: cleaner radius for small knob
 
             local function setState(nextState)
                 state = nextState
@@ -854,12 +878,18 @@ function Library:AddTab(tabSettings)
                 for _, enabled in pairs(states) do
                     if enabled then count = count + 1 end
                 end
-                if count == 0 then valueLabel.Text = "None"
+                if count == 0 then
+                    valueLabel.Text = "None"
                 elseif count == 1 then
                     for opt, enabled in pairs(states) do
-                        if enabled then valueLabel.Text = opt break end
+                        if enabled then
+                            valueLabel.Text = opt
+                            break
+                        end
                     end
-                else valueLabel.Text = tostring(count) .. " selected" end
+                else
+                    valueLabel.Text = tostring(count) .. " selected"
+                end
             end
 
             local function updateOptionVisual(option)
@@ -939,12 +969,12 @@ function Library:AddTab(tabSettings)
                         optionText.ZIndex = 42
 
                         local toggleBg = Instance.new("Frame")
-                        toggleBg.Size = UDim2.fromOffset(28, 16)
-                        toggleBg.Position = UDim2.new(1, -34, 0.5, -8)
+                        toggleBg.Size = UDim2.fromOffset(30, 16) -- slightly cleaner proportions
+                        toggleBg.Position = UDim2.new(1, -36, 0.5, -8)
                         toggleBg.BackgroundColor3 = style.ItemColor
                         toggleBg.ZIndex = 42
                         toggleBg.Parent = optionButton
-                        makeCorner(toggleBg, 999)
+                        makeCorner(toggleBg, 8) -- FIX: less pixelated corner
 
                         local knob = Instance.new("Frame")
                         knob.Size = UDim2.fromOffset(12, 12)
@@ -952,7 +982,7 @@ function Library:AddTab(tabSettings)
                         knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
                         knob.ZIndex = 43
                         knob.Parent = toggleBg
-                        makeCorner(knob, 999)
+                        makeCorner(knob, 6) -- FIX: less pixelated corner
 
                         states[optionName] = typeof(defaults) == "table" and defaults[optionName] == true or false
                         optionRows[optionName] = { Button = optionButton, Text = optionText, ToggleBg = toggleBg, Knob = knob }
@@ -1059,7 +1089,10 @@ function Library:AddTab(tabSettings)
             local whiteGradient = Instance.new("UIGradient")
             whiteGradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.new(1, 1, 1))
             whiteGradient.Rotation = 0
-            whiteGradient.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+            whiteGradient.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0),
+                NumberSequenceKeypoint.new(1, 1)
+            })
             whiteGradient.Parent = whiteLayer
 
             local blackLayer = Instance.new("Frame")
@@ -1072,7 +1105,10 @@ function Library:AddTab(tabSettings)
             local blackGradient = Instance.new("UIGradient")
             blackGradient.Rotation = 90
             blackGradient.Color = ColorSequence.new(Color3.new(0, 0, 0), Color3.new(0, 0, 0))
-            blackGradient.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
+            blackGradient.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(1, 0)
+            })
             blackGradient.Parent = blackLayer
 
             local svCursor = Instance.new("Frame")
@@ -1147,7 +1183,8 @@ function Library:AddTab(tabSettings)
             local function setFromSV(pos)
                 local x = clamp01((pos.X - sv.AbsolutePosition.X) / math.max(sv.AbsoluteSize.X, 1))
                 local y = clamp01((pos.Y - sv.AbsolutePosition.Y) / math.max(sv.AbsoluteSize.Y, 1))
-                s = x; v = 1 - y
+                s = x
+                v = 1 - y
                 updateVisuals(true)
             end
 
@@ -1232,7 +1269,11 @@ function Library:AddTab(tabSettings)
             table.insert(menuRef.Connections, UserInputService.InputChanged:Connect(function(input)
                 if not dragMode then return end
                 if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
-                if dragMode == "sv" then setFromSV(input.Position) else setFromHue(input.Position) end
+                if dragMode == "sv" then
+                    setFromSV(input.Position)
+                else
+                    setFromHue(input.Position)
+                end
             end))
 
             table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
@@ -1245,7 +1286,9 @@ function Library:AddTab(tabSettings)
             end))
 
             table.insert(menuRef.Connections, UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragMode = nil end
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragMode = nil
+                end
             end))
 
             updateVisuals(false)
@@ -1306,8 +1349,11 @@ function Library:AddTab(tabSettings)
                         listening = false
                         menuRef._capturingKeybind = false
                         tween(keyBg, 0.1, { BackgroundColor3 = style.ItemColor })
-                        if input.KeyCode == Enum.KeyCode.Escape then setKey(Enum.KeyCode.Unknown, true)
-                        else setKey(input.KeyCode, true) end
+                        if input.KeyCode == Enum.KeyCode.Escape then
+                            setKey(Enum.KeyCode.Unknown, true)
+                        else
+                            setKey(input.KeyCode, true)
+                        end
                     elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
                         listening = false
                         menuRef._capturingKeybind = false
@@ -1316,9 +1362,9 @@ function Library:AddTab(tabSettings)
                     end
                     return
                 end
-                
+
                 if UserInputService:GetFocusedTextBox() then return end
-                
+
                 if currentKey ~= Enum.KeyCode.Unknown then
                     if input.KeyCode == currentKey or input.UserInputType == currentKey then
                         if data.Callback then data.Callback(currentKey) end
@@ -1365,7 +1411,10 @@ function Library:AddTab(tabSettings)
             end)
 
             cacheOriginalTransparency(row)
-            return { Set = function(v) box.Text = tostring(v) end, Get = function() return box.Text end }
+            return {
+                Set = function(v) box.Text = tostring(v) end,
+                Get = function() return box.Text end
+            }
         end
 
         function api:AddLabel(text)
