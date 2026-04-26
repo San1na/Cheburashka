@@ -1,25 +1,28 @@
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
 local Library = {}
 Library.__index = Library
 
 Library.Defaults = {
+    Name = "Project X",
+    Subtitle = "Loaded",
     Parent = nil,
     Keybind = Enum.KeyCode.RightShift,
     Width = 620,
     Height = 450,
     Draggable = true,
     CornerRadius = 8,
-    AccentColor = Color3.fromRGB(85, 105, 255),
+    AccentColor = Color3.fromRGB(0, 122, 255),
     SidebarColor = Color3.fromRGB(20, 20, 22),
     BackgroundColor = Color3.fromRGB(25, 25, 27),
     SurfaceColor = Color3.fromRGB(32, 32, 35),
-    ItemColor = Color3.fromRGB(40, 40, 44),
-    TextColor = Color3.fromRGB(240, 240, 240),
-    SubTextColor = Color3.fromRGB(160, 160, 165),
-    BorderColor = Color3.fromRGB(50, 50, 55),
+    ItemColor = Color3.fromRGB(45, 45, 50),
+    TextColor = Color3.fromRGB(245, 245, 245),
+    SubTextColor = Color3.fromRGB(170, 170, 175),
+    BorderColor = Color3.fromRGB(55, 55, 60),
     Font = Enum.Font.Gotham,
     SmallTextSize = 12,
     NormalTextSize = 13,
@@ -483,24 +486,25 @@ function Library:AddTab(tabSettings)
             local text = makeLabel(row, data.Text or "Toggle", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
             text.Size = UDim2.new(1, -76, 1, 0)
 
-            local switch = Instance.new("Frame")
-            switch.Size = UDim2.fromOffset(40, 20)
-            switch.Position = UDim2.new(1, -40, 0.5, -10)
-            switch.BackgroundColor3 = state and style.AccentColor or style.BorderColor
-            switch.Parent = row
-            makeCorner(switch, 999)
+            local checkBg = Instance.new("Frame")
+            checkBg.Size = UDim2.fromOffset(18, 18)
+            checkBg.Position = UDim2.new(1, -26, 0.5, -9)
+            checkBg.BackgroundColor3 = style.SurfaceColor
+            checkBg.Parent = row
+            makeCorner(checkBg, 4)
+            makeStroke(checkBg, style.BorderColor, 1)
 
-            local knob = Instance.new("Frame")
-            knob.Size = UDim2.fromOffset(16, 16)
-            knob.Position = state and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2)
-            knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            knob.Parent = switch
-            makeCorner(knob, 999)
+            local checkFill = Instance.new("Frame")
+            checkFill.Size = state and UDim2.fromScale(1, 1) or UDim2.fromScale(0, 0)
+            checkFill.AnchorPoint = Vector2.new(0.5, 0.5)
+            checkFill.Position = UDim2.fromScale(0.5, 0.5)
+            checkFill.BackgroundColor3 = style.AccentColor
+            checkFill.Parent = checkBg
+            makeCorner(checkFill, 4)
 
             local function setState(nextState)
                 state = nextState
-                tween(switch, 0.16, { BackgroundColor3 = state and style.AccentColor or style.BorderColor })
-                tween(knob, 0.16, { Position = state and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2) })
+                tween(checkFill, 0.15, { Size = state and UDim2.fromScale(1, 1) or UDim2.fromScale(0, 0) }, Enum.EasingStyle.Back)
                 if data.Callback then data.Callback(state) end
             end
 
@@ -583,6 +587,7 @@ function Library:AddTab(tabSettings)
             local expanded = false
             local optionRows = {}
             local optionsHeight = 0
+            local rsConnection
 
             local row = makeRow(data.Height)
             local title = makeLabel(row, data.Text or "Dropdown", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
@@ -613,10 +618,6 @@ function Library:AddTab(tabSettings)
             makeCorner(popup, 6)
             local popupStroke = makeStroke(popup, style.BorderColor, 1)
 
-            local popupScale = Instance.new("UIScale")
-            popupScale.Scale = 0.98
-            popupScale.Parent = popup
-
             local popupPad = Instance.new("UIPadding")
             popupPad.PaddingTop = UDim.new(0, 4)
             popupPad.PaddingBottom = UDim.new(0, 4)
@@ -635,11 +636,13 @@ function Library:AddTab(tabSettings)
             end
 
             local function refreshPopupPlacement()
+                if not hitBg or not hitBg.Parent then return end
                 local rootPos = menuRef.Root.AbsolutePosition
                 local hitPos = hitBg.AbsolutePosition
                 popup.Position = UDim2.fromOffset(hitPos.X - rootPos.X, hitPos.Y - rootPos.Y + hitBg.AbsoluteSize.Y + 4)
-                local width = hitBg.AbsoluteSize.X
-                popup.Size = UDim2.fromOffset(width, expanded and optionsHeight or 0)
+                if not expanded then
+                    popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0)
+                end
             end
 
             local function updateStyles()
@@ -654,18 +657,21 @@ function Library:AddTab(tabSettings)
                 expanded = state
                 if expanded then
                     popup.Visible = true
-                    popupScale.Scale = 0.98
-                    popup.BackgroundTransparency = 1
-                    popupStroke.Transparency = 1
                     refreshPopupPlacement()
-                    tween(popup, 0.16, { Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
-                    tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Quint)
-                    tween(popupStroke, 0.16, { Transparency = 0 }, Enum.EasingStyle.Quint)
+                    if not rsConnection then
+                        rsConnection = RunService.RenderStepped:Connect(refreshPopupPlacement)
+                        table.insert(menuRef.Connections, rsConnection)
+                    end
+                    tween(popup, 0.2, { Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                 else
-                    tween(popup, 0.14, { Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
-                    tween(popupScale, 0.14, { Scale = 0.98 }, Enum.EasingStyle.Quint)
-                    tween(popupStroke, 0.14, { Transparency = 1 }, Enum.EasingStyle.Quint)
-                    task.delay(0.14, function()
+                    if rsConnection then
+                        rsConnection:Disconnect()
+                        rsConnection = nil
+                    end
+                    tween(popup, 0.2, { Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    tween(popupStroke, 0.2, { Transparency = 1 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    task.delay(0.2, function()
                         if popup and popup.Parent and not expanded then popup.Visible = false end
                     end)
                 end
@@ -730,7 +736,7 @@ function Library:AddTab(tabSettings)
             hit.MouseButton1Click:Connect(function() setExpanded(not expanded) end)
 
             table.insert(menuRef.Connections, row:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-                refreshPopupPlacement()
+                if not expanded then refreshPopupPlacement() end
             end))
 
             table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
@@ -765,6 +771,7 @@ function Library:AddTab(tabSettings)
             local expanded = false
             local optionRows = {}
             local optionsHeight = 0
+            local rsConnection
 
             local row = makeRow(data.Height)
             local title = makeLabel(row, data.Text or "MultiBoolean", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
@@ -795,10 +802,6 @@ function Library:AddTab(tabSettings)
             makeCorner(popup, 6)
             local popupStroke = makeStroke(popup, style.BorderColor, 1)
 
-            local popupScale = Instance.new("UIScale")
-            popupScale.Scale = 0.98
-            popupScale.Parent = popup
-
             local popupPad = Instance.new("UIPadding")
             popupPad.PaddingTop = UDim.new(0, 4)
             popupPad.PaddingBottom = UDim.new(0, 4)
@@ -817,11 +820,13 @@ function Library:AddTab(tabSettings)
             end
 
             local function refreshPopupPlacement()
+                if not hitBg or not hitBg.Parent then return end
                 local rootPos = menuRef.Root.AbsolutePosition
                 local hitPos = hitBg.AbsolutePosition
                 popup.Position = UDim2.fromOffset(hitPos.X - rootPos.X, hitPos.Y - rootPos.Y + hitBg.AbsoluteSize.Y + 4)
-                local width = hitBg.AbsoluteSize.X
-                popup.Size = UDim2.fromOffset(width, expanded and optionsHeight or 0)
+                if not expanded then
+                    popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0)
+                end
             end
 
             local function updateSummary()
@@ -841,8 +846,7 @@ function Library:AddTab(tabSettings)
                 local ref = optionRows[option]
                 if not ref then return end
                 local active = states[option] == true
-                tween(ref.Knob, 0.12, { Position = active and UDim2.fromOffset(14, 2) or UDim2.fromOffset(2, 2) })
-                tween(ref.Switch, 0.12, { BackgroundColor3 = active and style.AccentColor or style.BorderColor })
+                tween(ref.CheckFill, 0.15, { Size = active and UDim2.fromScale(1, 1) or UDim2.fromScale(0, 0) }, Enum.EasingStyle.Back)
                 tween(ref.Text, 0.12, { TextColor3 = active and style.TextColor or style.SubTextColor })
             end
 
@@ -850,18 +854,21 @@ function Library:AddTab(tabSettings)
                 expanded = state
                 if expanded then
                     popup.Visible = true
-                    popupScale.Scale = 0.98
-                    popup.BackgroundTransparency = 1
-                    popupStroke.Transparency = 1
                     refreshPopupPlacement()
-                    tween(popup, 0.16, { Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quint)
-                    tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Quint)
-                    tween(popupStroke, 0.16, { Transparency = 0 }, Enum.EasingStyle.Quint)
+                    if not rsConnection then
+                        rsConnection = RunService.RenderStepped:Connect(refreshPopupPlacement)
+                        table.insert(menuRef.Connections, rsConnection)
+                    end
+                    tween(popup, 0.2, { Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
                 else
-                    tween(popup, 0.14, { Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quint)
-                    tween(popupScale, 0.14, { Scale = 0.98 }, Enum.EasingStyle.Quint)
-                    tween(popupStroke, 0.14, { Transparency = 1 }, Enum.EasingStyle.Quint)
-                    task.delay(0.14, function()
+                    if rsConnection then
+                        rsConnection:Disconnect()
+                        rsConnection = nil
+                    end
+                    tween(popup, 0.2, { Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    tween(popupStroke, 0.2, { Transparency = 1 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    task.delay(0.2, function()
                         if popup and popup.Parent and not expanded then popup.Visible = false end
                     end)
                 end
@@ -910,24 +917,26 @@ function Library:AddTab(tabSettings)
                         optionText.Position = UDim2.fromOffset(6, 0)
                         optionText.ZIndex = 42
 
-                        local switch = Instance.new("Frame")
-                        switch.Size = UDim2.fromOffset(24, 12)
-                        switch.Position = UDim2.new(1, -30, 0.5, -6)
-                        switch.BackgroundColor3 = style.BorderColor
-                        switch.ZIndex = 42
-                        switch.Parent = optionButton
-                        makeCorner(switch, 999)
+                        local checkBg = Instance.new("Frame")
+                        checkBg.Size = UDim2.fromOffset(14, 14)
+                        checkBg.Position = UDim2.new(1, -22, 0.5, -7)
+                        checkBg.BackgroundColor3 = style.SurfaceColor
+                        checkBg.ZIndex = 42
+                        checkBg.Parent = optionButton
+                        makeCorner(checkBg, 3)
+                        makeStroke(checkBg, style.BorderColor, 1)
 
-                        local knob = Instance.new("Frame")
-                        knob.Size = UDim2.fromOffset(8, 8)
-                        knob.Position = UDim2.fromOffset(2, 2)
-                        knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                        knob.ZIndex = 43
-                        knob.Parent = switch
-                        makeCorner(knob, 999)
+                        local checkFill = Instance.new("Frame")
+                        checkFill.Size = UDim2.fromScale(0, 0)
+                        checkFill.AnchorPoint = Vector2.new(0.5, 0.5)
+                        checkFill.Position = UDim2.fromScale(0.5, 0.5)
+                        checkFill.BackgroundColor3 = style.AccentColor
+                        checkFill.ZIndex = 43
+                        checkFill.Parent = checkBg
+                        makeCorner(checkFill, 3)
 
                         states[optionName] = typeof(defaults) == "table" and defaults[optionName] == true or false
-                        optionRows[optionName] = { Button = optionButton, Text = optionText, Switch = switch, Knob = knob }
+                        optionRows[optionName] = { Button = optionButton, Text = optionText, CheckBg = checkBg, CheckFill = checkFill }
 
                         optionButton.MouseButton1Click:Connect(function()
                             setOption(optionName, not states[optionName], false)
@@ -943,7 +952,7 @@ function Library:AddTab(tabSettings)
             hit.MouseButton1Click:Connect(function() setExpanded(not expanded) end)
 
             table.insert(menuRef.Connections, row:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-                refreshPopupPlacement()
+                if not expanded then refreshPopupPlacement() end
             end))
 
             table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
@@ -976,6 +985,7 @@ function Library:AddTab(tabSettings)
             local h, s, v = Color3.toHSV(currentColor)
             local isOpen = false
             local dragMode = nil
+            local rsConnection
 
             local row = makeRow(data.Height)
             local rowButton = makeButton(row)
@@ -1104,6 +1114,7 @@ function Library:AddTab(tabSettings)
 
             local popupApi
             local function updatePopupPosition()
+                if not row or not row.Parent then return end
                 local rootPos = menuRef.Root.AbsolutePosition
                 local rootSize = menuRef.Root.AbsoluteSize
                 local rowPos = row.AbsolutePosition
@@ -1133,6 +1144,10 @@ function Library:AddTab(tabSettings)
                     end
                 end
                 updatePopupPosition()
+                if not rsConnection then
+                    rsConnection = RunService.RenderStepped:Connect(updatePopupPosition)
+                    table.insert(menuRef.Connections, rsConnection)
+                end
                 popup.Visible = true
                 popup.BackgroundTransparency = 1
                 popupStroke.Transparency = 1
@@ -1148,6 +1163,10 @@ function Library:AddTab(tabSettings)
             local function closePopup()
                 if not isOpen then return end
                 isOpen = false
+                if rsConnection then
+                    rsConnection:Disconnect()
+                    rsConnection = nil
+                end
                 tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
                 tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
                 tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
@@ -1161,6 +1180,10 @@ function Library:AddTab(tabSettings)
             function popupApi:CloseInstant()
                 isOpen = false
                 dragMode = nil
+                if rsConnection then
+                    rsConnection:Disconnect()
+                    rsConnection = nil
+                end
                 popup.Visible = false
                 popup.BackgroundTransparency = 1
                 popupStroke.Transparency = 1
@@ -1173,13 +1196,18 @@ function Library:AddTab(tabSettings)
                 if isOpen then closePopup() else openPopup() end
             end)
 
-            svHit.MouseButton1Down:Connect(function()
-                dragMode = "sv"
-                setFromSV(UserInputService:GetMouseLocation())
+            svHit.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragMode = "sv"
+                    setFromSV(input.Position)
+                end
             end)
-            hueHit.MouseButton1Down:Connect(function()
-                dragMode = "hue"
-                setFromHue(UserInputService:GetMouseLocation())
+
+            hueHit.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragMode = "hue"
+                    setFromHue(input.Position)
+                end
             end)
 
             table.insert(menuRef.Connections, UserInputService.InputChanged:Connect(function(input)
