@@ -103,7 +103,7 @@ local function tweenDescendants(root, speed, mode)
         if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
             tween(obj, speed, { TextTransparency = (mode == "hide") and 1 or 0 })
         end
-        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") or obj:IsA("ScrollingFrame") then
+        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") or obj:IsA("ScrollingFrame") or obj:IsA("TextButton") or obj:IsA("TextBox") then
             local target = (mode == "hide") and 1 or (obj:GetAttribute("OrigBG") or 0)
             tween(obj, speed, { BackgroundTransparency = target })
         end
@@ -121,7 +121,7 @@ end
 local function cacheOriginalTransparency(root)
     if not root then return end
     for _, obj in ipairs(root:GetDescendants()) do
-        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") or obj:IsA("ScrollingFrame") then
+        if obj:IsA("Frame") or obj:IsA("ImageLabel") or obj:IsA("ImageButton") or obj:IsA("ScrollingFrame") or obj:IsA("TextButton") or obj:IsA("TextBox") then
             obj:SetAttribute("OrigBG", obj.BackgroundTransparency)
         end
         if obj:IsA("ScrollingFrame") then
@@ -137,9 +137,20 @@ local function clamp01(v)
     return math.clamp(v, 0, 1)
 end
 
-local function keyToText(keyCode)
-    if not keyCode or keyCode == Enum.KeyCode.Unknown then return "None" end
-    return keyCode.Name
+local function keyToText(key)
+    if not key then return "None" end
+    if typeof(key) == "EnumItem" then
+        if key.EnumType == Enum.KeyCode then
+            if key == Enum.KeyCode.Unknown then return "None" end
+            return key.Name
+        elseif key.EnumType == Enum.UserInputType then
+            if key == Enum.UserInputType.MouseButton1 then return "LMB" end
+            if key == Enum.UserInputType.MouseButton2 then return "RMB" end
+            if key == Enum.UserInputType.MouseButton3 then return "MMB" end
+            return key.Name
+        end
+    end
+    return "None"
 end
 
 local function colorToHex(color)
@@ -212,8 +223,8 @@ function Library.new(config)
     sidebar.Parent = holder
 
     local sidebarLine = Instance.new("Frame")
-    sidebarLine.Size = UDim2.new(0, 1, 1, 0)
-    sidebarLine.Position = UDim2.new(1, -1, 0, 0)
+    sidebarLine.Size = UDim2.new(0, 1, 1, -(settings.CornerRadius * 2))
+    sidebarLine.Position = UDim2.new(1, -1, 0, settings.CornerRadius)
     sidebarLine.BackgroundColor3 = settings.BorderColor
     sidebarLine.BorderSizePixel = 0
     sidebarLine.Parent = sidebar
@@ -238,6 +249,8 @@ function Library.new(config)
     tabsContainer.Size = UDim2.new(1, 0, 1, -70)
     tabsContainer.Position = UDim2.fromOffset(0, 70)
     tabsContainer.ScrollBarThickness = 0
+    tabsContainer.CanvasSize = UDim2.fromOffset(0, 0)
+    tabsContainer.AutomaticCanvasSize = Enum.AutomaticSize.Y
     tabsContainer.Parent = sidebar
 
     local tabsLayout = Instance.new("UIListLayout")
@@ -282,10 +295,17 @@ function Library.new(config)
     end
 
     table.insert(self.Connections, UserInputService.InputBegan:Connect(function(input)
-        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
         if UserInputService:GetFocusedTextBox() then return end
         if self._capturingKeybind then return end
-        if input.KeyCode == self.Settings.Keybind then
+        
+        local isKeybindHit = false
+        if self.Settings.Keybind.EnumType == Enum.KeyCode and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == self.Settings.Keybind then
+            isKeybindHit = true
+        elseif self.Settings.Keybind.EnumType == Enum.UserInputType and input.UserInputType == self.Settings.Keybind then
+            isKeybindHit = true
+        end
+
+        if isKeybindHit then
             self:Toggle()
         end
     end))
@@ -340,7 +360,8 @@ function Library:SetTitle(name, subtitle)
 end
 
 function Library:SetKeybind(keyCode)
-    if typeof(keyCode) ~= "EnumItem" or keyCode.EnumType ~= Enum.KeyCode then return false end
+    if typeof(keyCode) ~= "EnumItem" then return false end
+    if keyCode.EnumType ~= Enum.KeyCode and keyCode.EnumType ~= Enum.UserInputType then return false end
     self.Settings.Keybind = keyCode
     return true
 end
@@ -421,6 +442,7 @@ function Library:AddTab(tabSettings)
         local section = Instance.new("Frame")
         section.BackgroundColor3 = style.SurfaceColor
         section.BackgroundTransparency = 0
+        section.ClipsDescendants = true
         section.AutomaticSize = Enum.AutomaticSize.Y
         section.Size = UDim2.new(1, 0, 0, 0)
         section.Parent = page
@@ -487,7 +509,7 @@ function Library:AddTab(tabSettings)
             local toggleBg = Instance.new("Frame")
             toggleBg.Size = UDim2.fromOffset(36, 20)
             toggleBg.Position = UDim2.new(1, -44, 0.5, -10)
-            toggleBg.BackgroundColor3 = state and style.AccentColor or style.SurfaceColor
+            toggleBg.BackgroundColor3 = state and style.AccentColor or style.ItemColor
             toggleBg.Parent = row
             makeCorner(toggleBg, 999)
             makeStroke(toggleBg, style.BorderColor, 0)
@@ -501,7 +523,7 @@ function Library:AddTab(tabSettings)
 
             local function setState(nextState)
                 state = nextState
-                tween(toggleBg, 0.2, { BackgroundColor3 = state and style.AccentColor or style.SurfaceColor }, Enum.EasingStyle.Quart)
+                tween(toggleBg, 0.2, { BackgroundColor3 = state and style.AccentColor or style.ItemColor }, Enum.EasingStyle.Quart)
                 tween(knob, 0.2, { Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8) }, Enum.EasingStyle.Quart)
                 if data.Callback then data.Callback(state) end
             end
@@ -844,7 +866,7 @@ function Library:AddTab(tabSettings)
                 local ref = optionRows[option]
                 if not ref then return end
                 local active = states[option] == true
-                tween(ref.ToggleBg, 0.15, { BackgroundColor3 = active and style.AccentColor or style.SurfaceColor }, Enum.EasingStyle.Quad)
+                tween(ref.ToggleBg, 0.15, { BackgroundColor3 = active and style.AccentColor or style.ItemColor }, Enum.EasingStyle.Quad)
                 tween(ref.Knob, 0.15, { Position = active and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6) }, Enum.EasingStyle.Quad)
                 tween(ref.Text, 0.12, { TextColor3 = active and style.TextColor or style.SubTextColor })
             end
@@ -919,7 +941,7 @@ function Library:AddTab(tabSettings)
                         local toggleBg = Instance.new("Frame")
                         toggleBg.Size = UDim2.fromOffset(28, 16)
                         toggleBg.Position = UDim2.new(1, -34, 0.5, -8)
-                        toggleBg.BackgroundColor3 = style.SurfaceColor
+                        toggleBg.BackgroundColor3 = style.ItemColor
                         toggleBg.ZIndex = 42
                         toggleBg.Parent = optionButton
                         makeCorner(toggleBg, 999)
@@ -1264,7 +1286,8 @@ function Library:AddTab(tabSettings)
             keyLabel.Size = UDim2.fromScale(1, 1)
 
             local function setKey(newKey, trigger)
-                if typeof(newKey) ~= "EnumItem" or newKey.EnumType ~= Enum.KeyCode then return end
+                if typeof(newKey) ~= "EnumItem" then return end
+                if newKey.EnumType ~= Enum.KeyCode and newKey.EnumType ~= Enum.UserInputType then return end
                 currentKey = newKey
                 keyLabel.Text = keyToText(currentKey)
                 if trigger and data.OnChanged then data.OnChanged(currentKey) end
@@ -1278,18 +1301,28 @@ function Library:AddTab(tabSettings)
             end)
 
             table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
-                if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
                 if listening then
-                    listening = false
-                    menuRef._capturingKeybind = false
-                    tween(keyBg, 0.1, { BackgroundColor3 = style.ItemColor })
-                    if input.KeyCode == Enum.KeyCode.Escape then setKey(Enum.KeyCode.Unknown, true)
-                    else setKey(input.KeyCode, true) end
+                    if input.UserInputType == Enum.UserInputType.Keyboard then
+                        listening = false
+                        menuRef._capturingKeybind = false
+                        tween(keyBg, 0.1, { BackgroundColor3 = style.ItemColor })
+                        if input.KeyCode == Enum.KeyCode.Escape then setKey(Enum.KeyCode.Unknown, true)
+                        else setKey(input.KeyCode, true) end
+                    elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
+                        listening = false
+                        menuRef._capturingKeybind = false
+                        tween(keyBg, 0.1, { BackgroundColor3 = style.ItemColor })
+                        setKey(input.UserInputType, true)
+                    end
                     return
                 end
+                
                 if UserInputService:GetFocusedTextBox() then return end
-                if currentKey ~= Enum.KeyCode.Unknown and input.KeyCode == currentKey then
-                    if data.Callback then data.Callback(currentKey) end
+                
+                if currentKey ~= Enum.KeyCode.Unknown then
+                    if input.KeyCode == currentKey or input.UserInputType == currentKey then
+                        if data.Callback then data.Callback(currentKey) end
+                    end
                 end
             end))
 
