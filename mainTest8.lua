@@ -28,6 +28,12 @@ Library.Defaults = {
     AnimationSpeed = 0.25,
     ItemHeight = 36,
     SafeAreaPadding = 14,
+    Resizable = true,
+    ResizeHandleSize = 16,
+    MinWidth = 420,
+    MinHeight = 300,
+    MaxWidth = 1200,
+    MaxHeight = 900,
 }
 
 local function deepCopy(tbl)
@@ -261,6 +267,74 @@ function Library.new(config)
     local holderScale = Instance.new("UIScale")
     holderScale.Scale = 1
     holderScale.Parent = holder
+
+    local resizeHandle
+    if settings.Resizable then
+        resizeHandle = Instance.new("Frame")
+        resizeHandle.Name = "ResizeHandle"
+        resizeHandle.AnchorPoint = Vector2.new(1, 1)
+        resizeHandle.Size = UDim2.fromOffset(settings.ResizeHandleSize, settings.ResizeHandleSize)
+        resizeHandle.Position = UDim2.new(1, -4, 1, -4)
+        resizeHandle.BackgroundColor3 = settings.ItemColor
+        resizeHandle.BackgroundTransparency = 0.15
+        resizeHandle.ZIndex = 100
+        resizeHandle.Parent = holder
+        makeCorner(resizeHandle, 4)
+        makeStroke(resizeHandle, settings.BorderColor, 0)
+
+        local h1 = Instance.new("Frame")
+        h1.Size = UDim2.fromOffset(7, 1)
+        h1.Position = UDim2.fromOffset(5, 11)
+        h1.Rotation = -45
+        h1.BackgroundColor3 = settings.SubTextColor
+        h1.BorderSizePixel = 0
+        h1.ZIndex = 101
+        h1.Parent = resizeHandle
+
+        local h2 = Instance.new("Frame")
+        h2.Size = UDim2.fromOffset(5, 1)
+        h2.Position = UDim2.fromOffset(8, 11)
+        h2.Rotation = -45
+        h2.BackgroundColor3 = settings.SubTextColor
+        h2.BorderSizePixel = 0
+        h2.ZIndex = 101
+        h2.Parent = resizeHandle
+
+        local resizeButton = makeButton(resizeHandle)
+        resizeButton.Size = UDim2.fromScale(1, 1)
+        resizeButton.ZIndex = 102
+
+        local resizing = false
+        local resizeStartPos
+        local resizeStartSize
+
+        table.insert(self.Connections, resizeButton.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                resizing = true
+                resizeStartPos = input.Position
+                resizeStartSize = holder.AbsoluteSize
+            end
+        end))
+
+        table.insert(self.Connections, UserInputService.InputChanged:Connect(function(input)
+            if not resizing then return end
+            if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+
+            local delta = input.Position - resizeStartPos
+            local newWidth = math.clamp(resizeStartSize.X + delta.X, settings.MinWidth, settings.MaxWidth)
+            local newHeight = math.clamp(resizeStartSize.Y + delta.Y, settings.MinHeight, settings.MaxHeight)
+
+            holder.Size = UDim2.fromOffset(newWidth, newHeight)
+            self.Settings.Width = newWidth
+            self.Settings.Height = newHeight
+        end))
+
+        table.insert(self.Connections, UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                resizing = false
+            end
+        end))
+    end
 
     local sidebar = Instance.new("Frame")
     sidebar.Name = "Sidebar"
