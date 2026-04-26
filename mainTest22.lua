@@ -996,16 +996,24 @@ function Library:AddTab(tabSettings)
             local valueLabel = makeLabel(hitBg, tostring(selected), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
             valueLabel.Size = UDim2.fromScale(1, 1)
 
-            local popup = Instance.new("Frame")
+            local popup = Instance.new("ScrollingFrame")
             popup.Visible = false
             popup.ClipsDescendants = true
-            popup.BackgroundColor3 = style.ItemColor
+            popup.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             popup.BackgroundTransparency = 1
             popup.ZIndex = 200
+            popup.BorderSizePixel = 0
+            popup.CanvasSize = UDim2.fromOffset(0, 0)
+            popup.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            popup.ScrollBarImageColor3 = style.BorderColor
+            popup.ScrollBarImageTransparency = 0.35
+            popup.ScrollBarThickness = 0
             popup.Parent = menuRef.Root
             makeCorner(popup, 6)
             local popupStroke = makeStroke(popup, style.BorderColor, 1)
             popupStroke.ZIndex = 201
+
+            local maxPopupHeight = data.MaxPopupHeight or 220
 
             local popupPad = Instance.new("UIPadding")
             popupPad.PaddingTop = UDim.new(0, 0)
@@ -1015,7 +1023,7 @@ function Library:AddTab(tabSettings)
             popupPad.Parent = popup
 
             local panelLayout = Instance.new("UIListLayout")
-            panelLayout.Padding = UDim.new(0, 2)
+            panelLayout.Padding = UDim.new(0, 0)
             panelLayout.Parent = popup
 
             local popupScale = Instance.new("UIScale")
@@ -1038,12 +1046,13 @@ function Library:AddTab(tabSettings)
                 local rootSize = menuRef.Root.AbsoluteSize
                 local rowPos = row.AbsolutePosition
                 local popupWidth = getPopupWidth()
+                local displayHeight = math.min(math.max(optionsHeight, 0), maxPopupHeight)
 
                 local desiredX = rowPos.X - rootPos.X + row.AbsoluteSize.X + 8
                 local desiredY = rowPos.Y - rootPos.Y
 
                 local maxX = math.max(8, rootSize.X - popupWidth - 8)
-                local maxY = math.max(8, rootSize.Y - math.max(popup.AbsoluteSize.Y, optionsHeight) - 8)
+                local maxY = math.max(8, rootSize.Y - math.max(popup.AbsoluteSize.Y, displayHeight) - 8)
 
                 if desiredX > maxX then
                     desiredX = rowPos.X - rootPos.X - popupWidth - 8
@@ -1062,9 +1071,9 @@ function Library:AddTab(tabSettings)
             local function updateStyles()
                 for optionName, ref in pairs(optionRows) do
                     local active = (selected == optionName)
-                    ref.Button:SetAttribute("OrigBG", active and 0 or 1)
+                    ref.Button:SetAttribute("OrigBG", 1)
                     tween(ref.Text, 0.12, { TextColor3 = active and style.AccentColor or style.SubTextColor })
-                    tween(ref.Button, 0.12, { BackgroundTransparency = active and 0 or 1 })
+                    tween(ref.Button, 0.12, { BackgroundTransparency = 1 })
                 end
             end
 
@@ -1078,7 +1087,9 @@ function Library:AddTab(tabSettings)
                         table.insert(menuRef.Connections, rsConnection)
                     end
                     local popupWidth = getPopupWidth()
-                    popup.Size = UDim2.fromOffset(popupWidth, optionsHeight)
+                    local popupHeight = math.min(optionsHeight, maxPopupHeight)
+                    popup.ScrollBarThickness = (optionsHeight > maxPopupHeight) and 3 or 0
+                    popup.Size = UDim2.fromOffset(popupWidth, popupHeight)
                     popup.BackgroundTransparency = 1
                     popupStroke.Transparency = 1
                     popupScale.Scale = 0.96
@@ -1123,11 +1134,11 @@ function Library:AddTab(tabSettings)
                         optionButton.AutoButtonColor = false
                         optionButton.Text = ""
                         optionButton.BackgroundTransparency = 1
-                        optionButton.BackgroundColor3 = style.ItemColor
+                        optionButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
                         optionButton.Size = UDim2.new(1, 0, 0, 26)
                         optionButton.ZIndex = 202
                         optionButton.Parent = popup
-                        makeCorner(optionButton, 0)
+                        makeCorner(optionButton, 4)
 
                         local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
                         optionText.Size = UDim2.fromScale(1, 1)
@@ -1249,16 +1260,24 @@ function Library:AddTab(tabSettings)
             local valueLabel = makeLabel(hitBg, "None", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
             valueLabel.Size = UDim2.fromScale(1, 1)
 
-            local popup = Instance.new("Frame")
+            local popup = Instance.new("ScrollingFrame")
             popup.Visible = false
             popup.ClipsDescendants = true
             popup.BackgroundColor3 = style.SurfaceColor
             popup.BackgroundTransparency = 1
             popup.ZIndex = 200
+            popup.BorderSizePixel = 0
+            popup.CanvasSize = UDim2.fromOffset(0, 0)
+            popup.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            popup.ScrollBarImageColor3 = style.BorderColor
+            popup.ScrollBarImageTransparency = 0.35
+            popup.ScrollBarThickness = 0
             popup.Parent = menuRef.Root
             makeCorner(popup, 6)
             local popupStroke = makeStroke(popup, style.BorderColor, 1)
             popupStroke.ZIndex = 201
+
+            local maxPopupHeight = data.MaxPopupHeight or 220
 
             local popupPad = Instance.new("UIPadding")
             popupPad.PaddingTop = UDim.new(0, 4)
@@ -1291,12 +1310,13 @@ function Library:AddTab(tabSettings)
                 local rootSize = menuRef.Root.AbsoluteSize
                 local rowPos = row.AbsolutePosition
                 local popupWidth = getPopupWidth()
+                local displayHeight = math.min(math.max(optionsHeight, 0), maxPopupHeight)
 
                 local desiredX = rowPos.X - rootPos.X + row.AbsoluteSize.X + 8
                 local desiredY = rowPos.Y - rootPos.Y
 
                 local maxX = math.max(8, rootSize.X - popupWidth - 8)
-                local maxY = math.max(8, rootSize.Y - math.max(popup.AbsoluteSize.Y, optionsHeight) - 8)
+                local maxY = math.max(8, rootSize.Y - math.max(popup.AbsoluteSize.Y, displayHeight) - 8)
 
                 if desiredX > maxX then
                     desiredX = rowPos.X - rootPos.X - popupWidth - 8
@@ -1350,7 +1370,9 @@ function Library:AddTab(tabSettings)
                         table.insert(menuRef.Connections, rsConnection)
                     end
                     local popupWidth = getPopupWidth()
-                    popup.Size = UDim2.fromOffset(popupWidth, optionsHeight)
+                    local popupHeight = math.min(optionsHeight, maxPopupHeight)
+                    popup.ScrollBarThickness = (optionsHeight > maxPopupHeight) and 3 or 0
+                    popup.Size = UDim2.fromOffset(popupWidth, popupHeight)
                     popup.BackgroundTransparency = 1
                     popupStroke.Transparency = 1
                     popupScale.Scale = 0.96
@@ -1411,7 +1433,7 @@ function Library:AddTab(tabSettings)
                         local optionButton = Instance.new("TextButton")
                         optionButton.AutoButtonColor = false
                         optionButton.Text = ""
-                        optionButton.BackgroundTransparency = 0
+                        optionButton.BackgroundTransparency = 1
                         optionButton.BackgroundColor3 = style.ItemColor
                         optionButton.Size = UDim2.new(1, 0, 0, 26)
                         optionButton.ZIndex = 202
