@@ -261,7 +261,6 @@ function Library.new(config)
     local settings = deepCopy(Library.Defaults)
     for key, value in pairs(config) do settings[key] = value end
 
-    -- If user sets a light theme but leaves ItemColor default, avoid dark controls.
     if config.ItemColor == nil and isLightColor(settings.BackgroundColor) then
         settings.ItemColor = Color3.fromRGB(230, 230, 236)
     end
@@ -862,7 +861,7 @@ function Library:AddTab(tabSettings)
                 state = nextState
                 tween(toggleBg, 0.2, { BackgroundColor3 = state and style.AccentColor or style.ItemColor }, Enum.EasingStyle.Quart)
                 tween(knob, 0.2, { Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8) }, Enum.EasingStyle.Quart)
-                if not silent and data.Callback then data.Callback(state) end
+                if data.Callback then data.Callback(state) end
                 if not silent then menuRef:_emitChanged(controlRef.Flag) end
             end
 
@@ -874,7 +873,7 @@ function Library:AddTab(tabSettings)
                 Set = function(v, silent) setState(v == true, silent) end,
             })
 
-            button.MouseButton1Click:Connect(function() setState(not state) end)
+            button.MouseButton1Click:Connect(function() setState(not state, false) end)
             cacheOriginalTransparency(row)
             return { Set = setState, Get = function() return state end, Flag = controlRef and controlRef.Flag or nil }
         end
@@ -922,7 +921,7 @@ function Library:AddTab(tabSettings)
                 local rounded = min + math.floor(((raw - min) / step) + 0.5) * step
                 value = math.clamp(rounded, min, max)
                 render(value)
-                if not silent and data.Callback then data.Callback(value) end
+                if data.Callback then data.Callback(value) end
                 if not silent then menuRef:_emitChanged(controlRef.Flag) end
             end
 
@@ -945,7 +944,7 @@ function Library:AddTab(tabSettings)
             table.insert(menuRef.Connections, UserInputService.InputChanged:Connect(function(i)
                 if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
                     local alpha = math.clamp((i.Position.X - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
-                    setValue(min + (max - min) * alpha)
+                    setValue(min + (max - min) * alpha, false)
                 end
             end))
             table.insert(menuRef.Connections, UserInputService.InputEnded:Connect(function(i)
@@ -1128,6 +1127,17 @@ function Library:AddTab(tabSettings)
                 optionsHeight = 0
             end
 
+            local function setSelected(nextValue, silent)
+                local str = tostring(nextValue)
+                if optionRows[str] then
+                    selected = str
+                    valueLabel.Text = str
+                    updateStyles()
+                    if data.Callback then data.Callback(str) end
+                    if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
+                end
+            end
+
             local function rebuild(newOptions)
                 clearOptions()
                 local optionCount = 0
@@ -1154,12 +1164,8 @@ function Library:AddTab(tabSettings)
                         optionRows[optionName] = { Button = optionButton, Text = optionText }
 
                         optionButton.MouseButton1Click:Connect(function()
-                            selected = optionName
-                            valueLabel.Text = optionName
-                            updateStyles()
+                            setSelected(optionName, false)
                             setExpanded(false)
-                            if data.Callback then data.Callback(optionName) end
-                            if controlRef then menuRef:_emitChanged(controlRef.Flag) end
                         end)
                     end
                 end
@@ -1174,17 +1180,6 @@ function Library:AddTab(tabSettings)
                 valueLabel.Text = tostring(selected)
                 refreshPopupPlacement()
                 updateStyles()
-            end
-
-            local function setSelected(nextValue, silent)
-                local str = tostring(nextValue)
-                if optionRows[str] then
-                    selected = str
-                    valueLabel.Text = str
-                    updateStyles()
-                    if not silent and data.Callback then data.Callback(str) end
-                    if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
-                end
             end
 
             controlRef = menuRef:_registerControl({
@@ -1416,7 +1411,7 @@ function Library:AddTab(tabSettings)
                 states[option] = state and true or false
                 updateOptionVisual(option)
                 updateSummary()
-                if not silent and data.Callback then data.Callback(option, states[option], states) end
+                if data.Callback then data.Callback(option, states[option], states) end
                 if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
             end
 
@@ -1433,6 +1428,21 @@ function Library:AddTab(tabSettings)
                 optionRows = {}
                 states = {}
                 optionsHeight = 0
+            end
+
+            local function setAll(nextStates, silent)
+                if typeof(nextStates) ~= "table" then return end
+                for optionName in pairs(states) do
+                    if nextStates[optionName] ~= nil then
+                        states[optionName] = nextStates[optionName] == true
+                    end
+                end
+                for optionName in pairs(optionRows) do
+                    updateOptionVisual(optionName)
+                end
+                updateSummary()
+                if data.Callback then data.Callback(nil, nil, getStatesCopy()) end
+                if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
             end
 
             local function rebuild(newOptions, defaults)
@@ -1487,23 +1497,6 @@ function Library:AddTab(tabSettings)
                 refreshPopupPlacement()
                 for optionName in pairs(optionRows) do updateOptionVisual(optionName) end
                 updateSummary()
-            end
-
-            local function setAll(nextStates, silent)
-                if typeof(nextStates) ~= "table" then return end
-                for optionName in pairs(states) do
-                    if nextStates[optionName] ~= nil then
-                        states[optionName] = nextStates[optionName] == true
-                    end
-                end
-                for optionName in pairs(optionRows) do
-                    updateOptionVisual(optionName)
-                end
-                updateSummary()
-                if not silent and data.Callback then
-                    data.Callback(nil, nil, getStatesCopy())
-                end
-                if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
             end
 
             controlRef = menuRef:_registerControl({
@@ -1568,9 +1561,6 @@ function Library:AddTab(tabSettings)
         function api:AddMultiDropdown(data)
             return api:AddMultiBoolean(data)
         end
-
-        -- Remaining widgets from your original file can stay unchanged.
-        -- Kept compact here to avoid accidental behavior regressions.
 
         function api:AddColorPicker(data)
             data = data or {}
@@ -1697,15 +1687,15 @@ function Library:AddTab(tabSettings)
             hueHit.ZIndex = 25
 
             local controlRef
-            local function updateVisuals(emit)
+            local function updateVisuals(silent)
                 currentColor = Color3.fromHSV(h, s, v)
                 preview.BackgroundColor3 = currentColor
                 hexLabel.Text = colorToHex(currentColor)
                 sv.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
                 tween(svCursor, 0.08, { Position = UDim2.new(s, 0, 1 - v, 0) })
                 tween(hueCursor, 0.08, { Position = UDim2.new(0.5, 0, h, 0) })
-                if emit and data.Callback then data.Callback(currentColor) end
-                if emit and controlRef then menuRef:_emitChanged(controlRef.Flag) end
+                if data.Callback then data.Callback(currentColor) end
+                if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
             end
 
             controlRef = menuRef:_registerControl({
@@ -1717,7 +1707,7 @@ function Library:AddTab(tabSettings)
                     if typeof(colorValue) ~= "Color3" then return end
                     local newH, newS, newV = Color3.toHSV(colorValue)
                     h, s, v = newH, newS, newV
-                    updateVisuals(not silent)
+                    updateVisuals(silent == true)
                 end,
             })
 
@@ -1739,12 +1729,12 @@ function Library:AddTab(tabSettings)
                 local y = clamp01((pos.Y - sv.AbsolutePosition.Y) / math.max(sv.AbsoluteSize.Y, 1))
                 s = x
                 v = 1 - y
-                updateVisuals(true)
+                updateVisuals(false)
             end
 
             local function setFromHue(pos)
                 h = clamp01((pos.Y - hueBar.AbsolutePosition.Y) / math.max(hueBar.AbsoluteSize.Y, 1))
-                updateVisuals(true)
+                updateVisuals(false)
             end
 
             local function openPopup()
@@ -1839,14 +1829,14 @@ function Library:AddTab(tabSettings)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragMode = nil end
             end))
 
-            updateVisuals(false)
+            updateVisuals(true)
             cacheOriginalTransparency(row)
             cacheOriginalTransparency(popup)
             return {
                 Set = function(color)
                     local newH, newS, newV = Color3.toHSV(color)
                     h, s, v = newH, newS, newV
-                    updateVisuals(true)
+                    updateVisuals(false)
                 end,
                 Get = function() return currentColor end,
                 Flag = controlRef and controlRef.Flag or nil,
@@ -1878,13 +1868,14 @@ function Library:AddTab(tabSettings)
             keyLabel.Size = UDim2.fromScale(1, 1)
 
             local controlRef
-            local function setKey(newKey, trigger)
+            local function setKey(newKey, silent)
                 if typeof(newKey) ~= "EnumItem" then return end
                 if newKey.EnumType ~= Enum.KeyCode and newKey.EnumType ~= Enum.UserInputType then return end
                 currentKey = newKey
                 keyLabel.Text = keyToText(currentKey)
-                if trigger and data.OnChanged then data.OnChanged(currentKey) end
-                if trigger and controlRef then menuRef:_emitChanged(controlRef.Flag) end
+                if data.OnChanged then data.OnChanged(currentKey) end
+                if data.Callback then data.Callback(currentKey) end
+                if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
             end
 
             controlRef = menuRef:_registerControl({
@@ -1893,7 +1884,7 @@ function Library:AddTab(tabSettings)
                 Type = "Keybind",
                 Get = function() return currentKey end,
                 Set = function(v, silent)
-                    setKey(v, not silent)
+                    setKey(v, silent == true)
                 end,
             })
 
@@ -1910,13 +1901,13 @@ function Library:AddTab(tabSettings)
                         listening = false
                         menuRef._capturingKeybind = false
                         tween(keyBg, 0.1, { BackgroundColor3 = style.ItemColor })
-                        if input.KeyCode == Enum.KeyCode.Escape then setKey(Enum.KeyCode.Unknown, true)
-                        else setKey(input.KeyCode, true) end
+                        if input.KeyCode == Enum.KeyCode.Escape then setKey(Enum.KeyCode.Unknown, false)
+                        else setKey(input.KeyCode, false) end
                     elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
                         listening = false
                         menuRef._capturingKeybind = false
                         tween(keyBg, 0.1, { BackgroundColor3 = style.ItemColor })
-                        setKey(input.UserInputType, true)
+                        setKey(input.UserInputType, false)
                     end
                     return
                 end
@@ -1967,19 +1958,20 @@ function Library:AddTab(tabSettings)
             local controlRef
 
             box.Focused:Connect(function() tween(boxBg, 0.16, { BackgroundColor3 = style.BorderColor }) end)
+            
+            local function setText(nextValue, silent)
+                value = tostring(nextValue or "")
+                box.Text = value
+                if data.Callback then data.Callback(value, false) end
+                if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
+            end
+
             box.FocusLost:Connect(function(enterPressed)
                 value = box.Text
                 tween(boxBg, 0.16, { BackgroundColor3 = style.ItemColor })
                 if data.Callback then data.Callback(box.Text, enterPressed) end
                 if controlRef then menuRef:_emitChanged(controlRef.Flag) end
             end)
-
-            local function setText(nextValue, silent)
-                value = tostring(nextValue or "")
-                box.Text = value
-                if not silent and data.Callback then data.Callback(value, false) end
-                if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
-            end
 
             controlRef = menuRef:_registerControl({
                 Flag = data.Flag or data.Placeholder or data.Text,
@@ -2012,7 +2004,7 @@ function Library:AddTab(tabSettings)
                 local function setText(nextText, silent)
                     textValue = tostring(nextText or "")
                     label.Text = textValue
-                    if not silent and data.Callback then data.Callback(textValue) end
+                    if data.Callback then data.Callback(textValue) end
                     if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
                 end
 
