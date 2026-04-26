@@ -972,6 +972,11 @@ function api:AddDropdown(data)
             makeCorner(popup, 6)
             local popupStroke = makeStroke(popup, style.BorderColor, 1)
 
+            -- ФИКС: Используем UIScale для анимации вместо изменения Size
+            local popupScale = Instance.new("UIScale")
+            popupScale.Scale = 0.95
+            popupScale.Parent = popup
+
             local popupPad = Instance.new("UIPadding")
             popupPad.PaddingTop = UDim.new(0, 4)
             popupPad.PaddingBottom = UDim.new(0, 4)
@@ -994,9 +999,8 @@ function api:AddDropdown(data)
                 local rootPos = menuRef.Root.AbsolutePosition
                 local hitPos = hitBg.AbsolutePosition
                 popup.Position = UDim2.fromOffset(hitPos.X - rootPos.X, hitPos.Y - rootPos.Y + hitBg.AbsoluteSize.Y + 4)
-                if not expanded then
-                    popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0)
-                end
+                -- ФИКС: Размер всегда полный, чтобы UIListLayout не баговал
+                popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, optionsHeight)
             end
 
             local function updateStyles()
@@ -1010,23 +1014,33 @@ function api:AddDropdown(data)
             local function setExpanded(state)
                 expanded = state
                 if expanded then
-                    -- ФИКС: Принудительно задаем правильную ширину до начала анимации
-                    popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0)
-                    popup.Visible = true
                     refreshPopupPlacement()
+                    popup.Visible = true
+                    popup.BackgroundTransparency = 1
+                    popupStroke.Transparency = 1
+                    popupScale.Scale = 0.95
+                    tweenDescendants(popup, 0, "hide")
+
                     if not rsConnection then
                         rsConnection = RunService.RenderStepped:Connect(refreshPopupPlacement)
                         table.insert(menuRef.Connections, rsConnection)
                     end
-                    tween(popup, 0.2, { Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+
+                    tween(popupScale, 0.2, { Scale = 1 }, Enum.EasingStyle.Back)
+                    tween(popup, 0.2, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quart)
+                    tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart)
+                    tweenDescendants(popup, 0.2, "show")
+                    
+                    task.delay(0.05, updateStyles) -- Возвращаем цвета выделенного элемента
                 else
                     if rsConnection then
                         rsConnection:Disconnect()
                         rsConnection = nil
                     end
-                    tween(popup, 0.2, { Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    tween(popupStroke, 0.2, { Transparency = 1 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    tween(popupScale, 0.2, { Scale = 0.95 }, Enum.EasingStyle.Quad)
+                    tween(popup, 0.2, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+                    tween(popupStroke, 0.2, { Transparency = 1 }, Enum.EasingStyle.Quad)
+                    tweenDescendants(popup, 0.2, "hide")
                     task.delay(0.2, function()
                         if popup and popup.Parent and not expanded then popup.Visible = false end
                     end)
@@ -1065,6 +1079,8 @@ function api:AddDropdown(data)
                         optionText.Size = UDim2.fromScale(1, 1)
                         optionText.ZIndex = 42
 
+                        cacheOriginalTransparency(optionButton) -- Кешируем для правильной прозрачности
+
                         optionRows[optionName] = { Button = optionButton, Text = optionText }
 
                         optionButton.MouseButton1Click:Connect(function()
@@ -1086,13 +1102,7 @@ function api:AddDropdown(data)
                     selected = selected or "None"
                 end
                 valueLabel.Text = tostring(selected)
-                
-                -- Обновляем позицию и сбрасываем размер, если меню закрыто
                 refreshPopupPlacement()
-                if not expanded and hitBg and hitBg.Parent then
-                    popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0)
-                end
-                
                 updateStyles()
             end
 
@@ -1178,6 +1188,10 @@ function api:AddDropdown(data)
             makeCorner(popup, 6)
             local popupStroke = makeStroke(popup, style.BorderColor, 1)
 
+            local popupScale = Instance.new("UIScale")
+            popupScale.Scale = 0.95
+            popupScale.Parent = popup
+
             local popupPad = Instance.new("UIPadding")
             popupPad.PaddingTop = UDim.new(0, 4)
             popupPad.PaddingBottom = UDim.new(0, 4)
@@ -1200,9 +1214,7 @@ function api:AddDropdown(data)
                 local rootPos = menuRef.Root.AbsolutePosition
                 local hitPos = hitBg.AbsolutePosition
                 popup.Position = UDim2.fromOffset(hitPos.X - rootPos.X, hitPos.Y - rootPos.Y + hitBg.AbsoluteSize.Y + 4)
-                if not expanded then
-                    popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0)
-                end
+                popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, optionsHeight)
             end
 
             local function updateSummary()
@@ -1236,23 +1248,35 @@ function api:AddDropdown(data)
             local function setExpanded(state)
                 expanded = state
                 if expanded then
-                    -- ФИКС: Задаем ширину до твина
-                    popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0)
-                    popup.Visible = true
                     refreshPopupPlacement()
+                    popup.Visible = true
+                    popup.BackgroundTransparency = 1
+                    popupStroke.Transparency = 1
+                    popupScale.Scale = 0.95
+                    tweenDescendants(popup, 0, "hide")
+
                     if not rsConnection then
                         rsConnection = RunService.RenderStepped:Connect(refreshPopupPlacement)
                         table.insert(menuRef.Connections, rsConnection)
                     end
-                    tween(popup, 0.2, { Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+
+                    tween(popupScale, 0.2, { Scale = 1 }, Enum.EasingStyle.Back)
+                    tween(popup, 0.2, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quart)
+                    tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart)
+                    tweenDescendants(popup, 0.2, "show")
+                    
+                    task.delay(0.05, function()
+                        for optionName in pairs(optionRows) do updateOptionVisual(optionName) end
+                    end)
                 else
                     if rsConnection then
                         rsConnection:Disconnect()
                         rsConnection = nil
                     end
-                    tween(popup, 0.2, { Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    tween(popupStroke, 0.2, { Transparency = 1 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    tween(popupScale, 0.2, { Scale = 0.95 }, Enum.EasingStyle.Quad)
+                    tween(popup, 0.2, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+                    tween(popupStroke, 0.2, { Transparency = 1 }, Enum.EasingStyle.Quad)
+                    tweenDescendants(popup, 0.2, "hide")
                     task.delay(0.2, function()
                         if popup and popup.Parent and not expanded then popup.Visible = false end
                     end)
@@ -1325,6 +1349,8 @@ function api:AddDropdown(data)
                         knob.Parent = toggleBg
                         makeCorner(knob, 6)
 
+                        cacheOriginalTransparency(optionButton)
+
                         states[optionName] = typeof(defaults) == "table" and defaults[optionName] == true or false
                         optionRows[optionName] = { Button = optionButton, Text = optionText, ToggleBg = toggleBg, Knob = knob }
 
@@ -1334,12 +1360,7 @@ function api:AddDropdown(data)
                     end
                 end
                 optionsHeight = (optionCount * 26) + (math.max(optionCount - 1, 0) * 2) + 8
-                
                 refreshPopupPlacement()
-                if not expanded and hitBg and hitBg.Parent then
-                    popup.Size = UDim2.fromOffset(hitBg.AbsoluteSize.X, 0)
-                end
-                
                 for optionName in pairs(optionRows) do updateOptionVisual(optionName) end
                 updateSummary()
             end
