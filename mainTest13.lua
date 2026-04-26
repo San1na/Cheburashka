@@ -222,6 +222,40 @@ local function toFlag(text)
     return raw
 end
 
+local function normalizeOptions(input)
+    local out = {}
+    local seen = {}
+
+    if typeof(input) ~= "table" then
+        return out
+    end
+
+    for _, value in ipairs(input) do
+        local name = tostring(value)
+        if not seen[name] then
+            seen[name] = true
+            table.insert(out, name)
+        end
+    end
+
+    for key, value in pairs(input) do
+        if typeof(key) ~= "number" then
+            local candidate
+            if typeof(value) == "boolean" then
+                candidate = tostring(key)
+            else
+                candidate = tostring(value)
+            end
+            if not seen[candidate] then
+                seen[candidate] = true
+                table.insert(out, candidate)
+            end
+        end
+    end
+
+    return out
+end
+
 function Library.new(config)
     config = config or {}
     local settings = deepCopy(Library.Defaults)
@@ -984,6 +1018,14 @@ function Library:AddTab(tabSettings)
             panelLayout.Padding = UDim.new(0, 2)
             panelLayout.Parent = popup
 
+            local popupScale = Instance.new("UIScale")
+            popupScale.Scale = 0.96
+            popupScale.Parent = popup
+
+            local popupScale = Instance.new("UIScale")
+            popupScale.Scale = 0.96
+            popupScale.Parent = popup
+
             local function getPopupWidth()
                 return math.max(hitBg.AbsoluteSize.X, 140)
             end
@@ -1039,17 +1081,25 @@ function Library:AddTab(tabSettings)
                         table.insert(menuRef.Connections, rsConnection)
                     end
                     local popupWidth = getPopupWidth()
-                    tween(popup, 0.2, { Size = UDim2.fromOffset(popupWidth, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    popup.Size = UDim2.fromOffset(popupWidth, optionsHeight)
+                    popup.BackgroundTransparency = 1
+                    popupStroke.Transparency = 1
+                    popupScale.Scale = 0.96
+                    tweenDescendants(popup, 0, "hide")
+                    tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
+                    tween(popup, 0.16, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad)
                     tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    tweenDescendants(popup, 0.16, "show")
                 else
                     if rsConnection then
                         rsConnection:Disconnect()
                         rsConnection = nil
                     end
-                    local popupWidth = getPopupWidth()
-                    tween(popup, 0.2, { Size = UDim2.fromOffset(popupWidth, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    tween(popupStroke, 0.2, { Transparency = 1 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    task.delay(0.2, function()
+                    tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
+                    tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+                    tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
+                    tweenDescendants(popup, 0.12, "hide")
+                    task.delay(0.12, function()
                         if popup and popup.Parent and not expanded then popup.Visible = false end
                     end)
                 end
@@ -1067,8 +1117,7 @@ function Library:AddTab(tabSettings)
                 clearOptions()
                 local optionCount = 0
                 local seen = {}
-                for _, option in ipairs(newOptions or {}) do
-                    local optionName = tostring(option)
+                for _, optionName in ipairs(normalizeOptions(newOptions)) do
                     if not seen[optionName] then
                         seen[optionName] = true
                         optionCount = optionCount + 1
@@ -1146,6 +1195,7 @@ function Library:AddTab(tabSettings)
             end))
 
             rebuild(options)
+            cacheOriginalTransparency(popup)
             cacheOriginalTransparency(row)
             return {
                 Set = function(value, silent) setSelected(value, silent) end,
@@ -1281,17 +1331,25 @@ function Library:AddTab(tabSettings)
                         table.insert(menuRef.Connections, rsConnection)
                     end
                     local popupWidth = getPopupWidth()
-                    tween(popup, 0.2, { Size = UDim2.fromOffset(popupWidth, optionsHeight), BackgroundTransparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    popup.Size = UDim2.fromOffset(popupWidth, optionsHeight)
+                    popup.BackgroundTransparency = 1
+                    popupStroke.Transparency = 1
+                    popupScale.Scale = 0.96
+                    tweenDescendants(popup, 0, "hide")
+                    tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
+                    tween(popup, 0.16, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad)
                     tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    tweenDescendants(popup, 0.16, "show")
                 else
                     if rsConnection then
                         rsConnection:Disconnect()
                         rsConnection = nil
                     end
-                    local popupWidth = getPopupWidth()
-                    tween(popup, 0.2, { Size = UDim2.fromOffset(popupWidth, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    tween(popupStroke, 0.2, { Transparency = 1 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    task.delay(0.2, function()
+                    tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
+                    tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+                    tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
+                    tweenDescendants(popup, 0.12, "hide")
+                    task.delay(0.12, function()
                         if popup and popup.Parent and not expanded then popup.Visible = false end
                     end)
                 end
@@ -1326,8 +1384,7 @@ function Library:AddTab(tabSettings)
                 clearOptions()
                 local optionCount = 0
                 local seen = {}
-                for _, option in ipairs(newOptions or {}) do
-                    local optionName = tostring(option)
+                for _, optionName in ipairs(normalizeOptions(newOptions)) do
                     if not seen[optionName] then
                         seen[optionName] = true
                         optionCount = optionCount + 1
@@ -1417,6 +1474,7 @@ function Library:AddTab(tabSettings)
             end))
 
             rebuild(options, data.Default)
+            cacheOriginalTransparency(popup)
             cacheOriginalTransparency(row)
 
             return {
