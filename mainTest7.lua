@@ -206,6 +206,16 @@ local function isLightColor(c)
     return (c.R * 0.299 + c.G * 0.587 + c.B * 0.114) > 0.7
 end
 
+local function toFlag(text)
+    local raw = tostring(text or "item")
+    raw = raw:gsub("[^%w_]+", "_")
+    raw = raw:gsub("^_+", ""):gsub("_+$", "")
+    if raw == "" then
+        raw = "item"
+    end
+    return raw
+end
+
 function Library.new(config)
     config = config or {}
     local settings = deepCopy(Library.Defaults)
@@ -224,6 +234,16 @@ function Library.new(config)
     self.Connections = {}
     self._visibilityToken = 0
     self._colorPopups = {}
+    self._controls = {}
+    self._controlOrder = {}
+    self._pendingValues = nil
+    self._config = {
+        System = nil,
+        AutoLoad = false,
+        AutoLoadName = "autoload",
+        AutoSave = false,
+        AutoSaveName = "autoload",
+    }
 
     local root = getParent(settings.Parent)
 
@@ -394,6 +414,172 @@ function Library:SetKeybind(keyCode)
     return true
 end
 
+function Library:_registerControl(data)
+    if typeof(data) ~= "table" then return nil end
+    if typeof(data.Get) ~= "function" or typeof(data.Set) ~= "function" then
+        return nil
+    end
+
+    local base = toFlag(data.Flag or data.Name or ("control_" .. tostring(#self._controlOrder + 1)))
+    local flag = base
+    local index = 1
+    while self._controls[flag] ~= nil do
+        index = index + 1
+        flag = base .. "_" .. tostring(index)
+    end
+
+    local ref = {
+        Flag = flag,
+        Type = data.Type or "Unknown",
+        Get = data.Get,
+        Set = data.Set,
+        Serialize = data.Serialize,
+        Deserialize = data.Deserialize,
+    }
+
+    self._controls[flag] = ref
+    table.insert(self._controlOrder, flag)
+
+    if typeof(self._pendingValues) == "table" and self._pendingValues[flag] ~= nil then
+        local pending = self._pendingValues[flag]
+        if ref.Deserialize then
+            pending = ref.Deserialize(pending)
+        end
+        pcall(function()
+            ref.Set(pending, true)
+        end)
+    end
+
+    return ref
+end
+
+function Library:_emitChanged(flag)
+    local cfg = self._config
+    if not cfg or not cfg.System or not cfg.AutoSave then
+        return
+    end
+    local payload = self:GetValues()
+    cfg.System:SaveConfig(cfg.AutoSaveName, payload)
+    cfg.System:SetAutoLoad(cfg.AutoSaveName)
+end
+
+function Library:GetValues()
+    local out = {}
+    for _, flag in ipairs(self._controlOrder) do
+        local ref = self._controls[flag]
+        if ref and ref.Get then
+            local ok, value = pcall(ref.Get)
+            if ok then
+                if ref.Serialize then
+                    out[flag] = ref.Serialize(value)
+                else
+                    out[flag] = value
+                end
+            end
+        end
+    end
+    return out
+end
+
+function Library:ApplyValues(values, silent)
+    if typeof(values) ~= "table" then return end
+    for flag, raw in pairs(values) do
+        local ref = self._controls[flag]
+        if ref and ref.Set then
+            local value = raw
+            if ref.Deserialize then
+                value = ref.Deserialize(raw)
+            end
+            pcall(function()
+                ref.Set(value, silent == true)
+            end)
+        end
+    end
+end
+
+function Library:SetValue(flag, value, silent)
+    local ref = self._controls[flag]
+    if not ref then return false end
+    pcall(function()
+        ref.Set(value, silent == true)
+    end)
+    return true
+end
+
+function Library:GetValue(flag)
+    local ref = self._controls[flag]
+    if not ref then return nil end
+    local ok, value = pcall(ref.Get)
+    if ok then return value end
+    return nil
+end
+
+function Library:BindConfigSystem(configSystem, options)
+    if typeof(configSystem) ~= "table" then
+        return false, "configSystem is required"
+    end
+
+    options = options or {}
+    self._config.System = configSystem
+    self._config.AutoLoad = options.AutoLoad == true
+    self._config.AutoLoadName = options.AutoLoadName or "autoload"
+    self._config.AutoSave = options.AutoSave == true
+    self._config.AutoSaveName = options.AutoSaveName or self._config.AutoLoadName
+
+    if self._config.AutoLoad then
+        local loaded = configSystem:LoadAutoLoad()
+        if loaded then
+            self._pendingValues = loaded
+            self:ApplyValues(loaded, true)
+        end
+    end
+
+    return true
+end
+
+function Library:SaveConfig(configName)
+    local system = self._config and self._config.System
+    if not system then
+        return false, "No config system bound"
+    end
+    return system:SaveConfig(configName, self:GetValues())
+end
+
+function Library:LoadConfig(configName)
+    local system = self._config and self._config.System
+    if not system then
+        return false, "No config system bound"
+    end
+    local data = system:LoadConfig(configName)
+    if typeof(data) ~= "table" then
+        return false, "Config not found or invalid"
+    end
+    self:ApplyValues(data, true)
+    return true
+end
+
+function Library:SetAutoLoadConfig(configName)
+    local system = self._config and self._config.System
+    if not system or typeof(system.SetAutoLoad) ~= "function" then
+        return false, "No config system bound"
+    end
+    return system:SetAutoLoad(configName)
+end
+
+function Library:LoadAutoConfig()
+    local system = self._config and self._config.System
+    if not system or typeof(system.LoadAutoLoad) ~= "function" then
+        return false, "No config system bound"
+    end
+
+    local data = system:LoadAutoLoad()
+    if typeof(data) ~= "table" then
+        return false, "Autoload config missing"
+    end
+    self:ApplyValues(data, true)
+    return true
+end
+
 function Library:AddTab(tabSettings)
     tabSettings = tabSettings or {}
     local style = self.Settings
@@ -553,16 +739,26 @@ function Library:AddTab(tabSettings)
             knob.Parent = toggleBg
             makeCorner(knob, 8)
 
-            local function setState(nextState)
+            local controlRef
+            local function setState(nextState, silent)
                 state = nextState
                 tween(toggleBg, 0.2, { BackgroundColor3 = state and style.AccentColor or style.ItemColor }, Enum.EasingStyle.Quart)
                 tween(knob, 0.2, { Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8) }, Enum.EasingStyle.Quart)
-                if data.Callback then data.Callback(state) end
+                if not silent and data.Callback then data.Callback(state) end
+                if not silent then menuRef:_emitChanged(controlRef.Flag) end
             end
+
+            controlRef = menuRef:_registerControl({
+                Flag = data.Flag or data.Text,
+                Name = data.Text or "toggle",
+                Type = "Toggle",
+                Get = function() return state end,
+                Set = function(v, silent) setState(v == true, silent) end,
+            })
 
             button.MouseButton1Click:Connect(function() setState(not state) end)
             cacheOriginalTransparency(row)
-            return { Set = setState, Get = function() return state end }
+            return { Set = setState, Get = function() return state end, Flag = controlRef and controlRef.Flag or nil }
         end
 
         function api:AddSlider(data)
@@ -603,12 +799,25 @@ function Library:AddTab(tabSettings)
                 valueLabel.Text = tostring(v)
             end
 
-            local function setValue(raw)
+            local controlRef
+            local function setValue(raw, silent)
                 local rounded = min + math.floor(((raw - min) / step) + 0.5) * step
                 value = math.clamp(rounded, min, max)
                 render(value)
-                if data.Callback then data.Callback(value) end
+                if not silent and data.Callback then data.Callback(value) end
+                if not silent then menuRef:_emitChanged(controlRef.Flag) end
             end
+
+            controlRef = menuRef:_registerControl({
+                Flag = data.Flag or data.Text,
+                Name = data.Text or "slider",
+                Type = "Slider",
+                Get = function() return value end,
+                Set = function(v, silent)
+                    if typeof(v) ~= "number" then return end
+                    setValue(v, silent)
+                end,
+            })
 
             local input = makeButton(bar)
             input.Size = UDim2.new(1, 0, 1, 10)
@@ -629,7 +838,15 @@ function Library:AddTab(tabSettings)
 
             render(value)
             cacheOriginalTransparency(row)
-            return { Set = setValue, Get = function() return value end }
+            return { Set = setValue, Get = function() return value end, Flag = controlRef and controlRef.Flag or nil }
+        end
+
+        function api:AddBoolean(data)
+            return api:AddToggle(data)
+        end
+
+        function api:AddCheckbox(data)
+            return api:AddToggle(data)
         end
 
         function api:AddDropdown(data)
@@ -640,6 +857,7 @@ function Library:AddTab(tabSettings)
             local optionRows = {}
             local optionsHeight = 0
             local rsConnection
+            local controlRef
 
             local row = makeRow(data.Height)
             local title = makeLabel(row, data.Text or "Dropdown", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
@@ -769,6 +987,7 @@ function Library:AddTab(tabSettings)
                             updateStyles()
                             setExpanded(false)
                             if data.Callback then data.Callback(optionName) end
+                            if controlRef then menuRef:_emitChanged(controlRef.Flag) end
                         end)
                     end
                 end
@@ -784,6 +1003,25 @@ function Library:AddTab(tabSettings)
                 refreshPopupPlacement()
                 updateStyles()
             end
+
+            local function setSelected(nextValue, silent)
+                local str = tostring(nextValue)
+                if optionRows[str] then
+                    selected = str
+                    valueLabel.Text = str
+                    updateStyles()
+                    if not silent and data.Callback then data.Callback(str) end
+                    if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
+                end
+            end
+
+            controlRef = menuRef:_registerControl({
+                Flag = data.Flag or data.Text,
+                Name = data.Text or "dropdown",
+                Type = "Dropdown",
+                Get = function() return selected end,
+                Set = function(v, silent) setSelected(v, silent) end,
+            })
 
             hit.MouseButton1Click:Connect(function() setExpanded(not expanded) end)
 
@@ -802,17 +1040,10 @@ function Library:AddTab(tabSettings)
             rebuild(options)
             cacheOriginalTransparency(row)
             return {
-                Set = function(value)
-                    local nextValue = tostring(value)
-                    if optionRows[nextValue] then
-                        selected = nextValue
-                        valueLabel.Text = nextValue
-                        updateStyles()
-                        if data.Callback then data.Callback(nextValue) end
-                    end
-                end,
+                Set = function(value, silent) setSelected(value, silent) end,
                 Get = function() return selected end,
                 SetOptions = function(newOptions) rebuild(newOptions) end,
+                Flag = controlRef and controlRef.Flag or nil,
             }
         end
 
@@ -824,6 +1055,7 @@ function Library:AddTab(tabSettings)
             local optionRows = {}
             local optionsHeight = 0
             local rsConnection
+            local controlRef
 
             local row = makeRow(data.Height)
             local title = makeLabel(row, data.Text or "MultiBoolean", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
@@ -940,6 +1172,13 @@ function Library:AddTab(tabSettings)
                 updateOptionVisual(option)
                 updateSummary()
                 if not silent and data.Callback then data.Callback(option, states[option], states) end
+                if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
+            end
+
+            local function getStatesCopy()
+                local out = {}
+                for k, v in pairs(states) do out[k] = v end
+                return out
             end
 
             local function clearOptions()
@@ -1006,6 +1245,31 @@ function Library:AddTab(tabSettings)
                 updateSummary()
             end
 
+            local function setAll(nextStates, silent)
+                if typeof(nextStates) ~= "table" then return end
+                for optionName in pairs(states) do
+                    if nextStates[optionName] ~= nil then
+                        states[optionName] = nextStates[optionName] == true
+                    end
+                end
+                for optionName in pairs(optionRows) do
+                    updateOptionVisual(optionName)
+                end
+                updateSummary()
+                if not silent and data.Callback then
+                    data.Callback(nil, nil, getStatesCopy())
+                end
+                if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
+            end
+
+            controlRef = menuRef:_registerControl({
+                Flag = data.Flag or data.Text,
+                Name = data.Text or "multiboolean",
+                Type = "MultiBoolean",
+                Get = function() return getStatesCopy() end,
+                Set = function(v, silent) setAll(v, silent) end,
+            })
+
             hit.MouseButton1Click:Connect(function() setExpanded(not expanded) end)
 
             table.insert(menuRef.Connections, row:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
@@ -1032,7 +1296,13 @@ function Library:AddTab(tabSettings)
                     return out
                 end,
                 SetOptions = function(newOptions, defaults) rebuild(newOptions, defaults) end,
+                SetAll = setAll,
+                Flag = controlRef and controlRef.Flag or nil,
             }
+        end
+
+        function api:AddMultiDropdown(data)
+            return api:AddMultiBoolean(data)
         end
 
         -- Remaining widgets from your original file can stay unchanged.
@@ -1162,6 +1432,7 @@ function Library:AddTab(tabSettings)
             hueHit.Size = UDim2.fromScale(1, 1)
             hueHit.ZIndex = 25
 
+            local controlRef
             local function updateVisuals(emit)
                 currentColor = Color3.fromHSV(h, s, v)
                 preview.BackgroundColor3 = currentColor
@@ -1170,7 +1441,21 @@ function Library:AddTab(tabSettings)
                 tween(svCursor, 0.08, { Position = UDim2.new(s, 0, 1 - v, 0) })
                 tween(hueCursor, 0.08, { Position = UDim2.new(0.5, 0, h, 0) })
                 if emit and data.Callback then data.Callback(currentColor) end
+                if emit and controlRef then menuRef:_emitChanged(controlRef.Flag) end
             end
+
+            controlRef = menuRef:_registerControl({
+                Flag = data.Flag or data.Text,
+                Name = data.Text or "colorpicker",
+                Type = "ColorPicker",
+                Get = function() return currentColor end,
+                Set = function(colorValue, silent)
+                    if typeof(colorValue) ~= "Color3" then return end
+                    local newH, newS, newV = Color3.toHSV(colorValue)
+                    h, s, v = newH, newS, newV
+                    updateVisuals(not silent)
+                end,
+            })
 
             local popupApi
             local function updatePopupPosition()
@@ -1300,6 +1585,7 @@ function Library:AddTab(tabSettings)
                     updateVisuals(true)
                 end,
                 Get = function() return currentColor end,
+                Flag = controlRef and controlRef.Flag or nil,
             }
         end
 
@@ -1327,13 +1613,25 @@ function Library:AddTab(tabSettings)
             local keyLabel = makeLabel(keyBg, keyToText(currentKey), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
             keyLabel.Size = UDim2.fromScale(1, 1)
 
+            local controlRef
             local function setKey(newKey, trigger)
                 if typeof(newKey) ~= "EnumItem" then return end
                 if newKey.EnumType ~= Enum.KeyCode and newKey.EnumType ~= Enum.UserInputType then return end
                 currentKey = newKey
                 keyLabel.Text = keyToText(currentKey)
                 if trigger and data.OnChanged then data.OnChanged(currentKey) end
+                if trigger and controlRef then menuRef:_emitChanged(controlRef.Flag) end
             end
+
+            controlRef = menuRef:_registerControl({
+                Flag = data.Flag or data.Text,
+                Name = data.Text or "keybind",
+                Type = "Keybind",
+                Get = function() return currentKey end,
+                Set = function(v, silent)
+                    setKey(v, not silent)
+                end,
+            })
 
             button.MouseButton1Click:Connect(function()
                 listening = true
@@ -1372,11 +1670,13 @@ function Library:AddTab(tabSettings)
             return {
                 Set = function(newKey) setKey(newKey, false) end,
                 Get = function() return currentKey end,
+                Flag = controlRef and controlRef.Flag or nil,
             }
         end
 
         function api:AddInput(data)
             data = data or {}
+            local value = tostring(data.Default or "")
             local row = makeRow(data.Height)
             local boxBg = Instance.new("Frame")
             boxBg.Size = UDim2.new(1, 0, 1, -8)
@@ -1391,7 +1691,7 @@ function Library:AddTab(tabSettings)
             box.Position = UDim2.fromOffset(8, 0)
             box.BackgroundTransparency = 1
             box.ClearTextOnFocus = false
-            box.Text = data.Default or ""
+            box.Text = value
             box.PlaceholderText = data.Placeholder or "Input"
             box.TextColor3 = style.TextColor
             box.PlaceholderColor3 = style.SubTextColor
@@ -1400,22 +1700,82 @@ function Library:AddTab(tabSettings)
             box.Font = style.Font
             box.Parent = boxBg
 
+            local controlRef
+
             box.Focused:Connect(function() tween(boxBg, 0.16, { BackgroundColor3 = style.BorderColor }) end)
             box.FocusLost:Connect(function(enterPressed)
+                value = box.Text
                 tween(boxBg, 0.16, { BackgroundColor3 = style.ItemColor })
                 if data.Callback then data.Callback(box.Text, enterPressed) end
+                if controlRef then menuRef:_emitChanged(controlRef.Flag) end
             end)
 
+            local function setText(nextValue, silent)
+                value = tostring(nextValue or "")
+                box.Text = value
+                if not silent and data.Callback then data.Callback(value, false) end
+                if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
+            end
+
+            controlRef = menuRef:_registerControl({
+                Flag = data.Flag or data.Placeholder or data.Text,
+                Name = data.Placeholder or "input",
+                Type = "Input",
+                Get = function() return value end,
+                Set = function(v, silent) setText(v, silent) end,
+            })
+
             cacheOriginalTransparency(row)
-            return { Set = function(v) box.Text = tostring(v) end, Get = function() return box.Text end }
+            return {
+                Set = function(v, silent) setText(v, silent) end,
+                Get = function() return value end,
+                Flag = controlRef and controlRef.Flag or nil,
+            }
+        end
+
+        function api:AddTextLabel(data)
+            if typeof(data) ~= "table" then
+                data = { Text = tostring(data or "Label") }
+            end
+
+            local textValue = tostring(data.Text or "Label")
+            local row = makeRow(data.Height or 24)
+            local label = makeLabel(row, textValue, data.TextSize or style.SmallTextSize, data.TextColor or style.SubTextColor, data.Font or style.Font, data.Align or Enum.TextXAlignment.Left)
+            label.Size = UDim2.fromScale(1, 1)
+
+            local controlRef
+            if data.Flag then
+                local function setText(nextText, silent)
+                    textValue = tostring(nextText or "")
+                    label.Text = textValue
+                    if not silent and data.Callback then data.Callback(textValue) end
+                    if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
+                end
+
+                controlRef = menuRef:_registerControl({
+                    Flag = data.Flag,
+                    Name = data.Flag,
+                    Type = "TextLabel",
+                    Get = function() return textValue end,
+                    Set = function(v, silent) setText(v, silent) end,
+                })
+            end
+
+            cacheOriginalTransparency(row)
+            return {
+                Instance = label,
+                Set = function(v, silent)
+                    textValue = tostring(v or "")
+                    label.Text = textValue
+                    if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
+                end,
+                Get = function() return textValue end,
+                Flag = controlRef and controlRef.Flag or nil,
+            }
         end
 
         function api:AddLabel(text)
-            local row = makeRow(24)
-            local label = makeLabel(row, text or "Label", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
-            label.Size = UDim2.fromScale(1, 1)
-            cacheOriginalTransparency(row)
-            return label
+            return api:AddTextLabel({ Text = text })
         end
 
         function api:AddDivider()
