@@ -967,258 +967,244 @@ function Library:AddTab(tabSettings)
             return api:AddToggle(data)
         end
 
-        function api:AddDropdown(data)
-            data = data or {}
-            local options = data.Options or {}
-            local selected = data.Default or options[1] or "None"
-            local expanded = false
-            local optionRows = {}
-            local optionsHeight = 0
-            local rsConnection
-            local controlRef
+function api:AddDropdown(data)
+    data = data or {}
+    local options = data.Options or {}
+    local selected = data.Default or options[1] or "None"
+    local expanded = false
+    local optionRows = {}
+    local optionsHeight = 0
+    local rsConnection
+    local controlRef
 
-            local row = makeRow(data.Height)
-            local title = makeLabel(row, data.Text or "Dropdown", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-            title.Size = UDim2.new(0.45, 0, 1, 0)
+    local row = makeRow(data.Height)
+    local title = makeLabel(row, data.Text or "Dropdown", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+    title.Size = UDim2.new(0.45, 0, 1, 0)
 
-            local hitBg = Instance.new("Frame")
-            hitBg.Size = UDim2.new(0.5, 0, 1, -4)
-            hitBg.Position = UDim2.new(0.5, 0, 0, 2)
-            hitBg.BackgroundColor3 = style.ItemColor
-            hitBg.Parent = row
-            makeCorner(hitBg, 4)
-            makeStroke(hitBg, style.BorderColor, 0)
+    local hitBg = Instance.new("Frame")
+    hitBg.Size = UDim2.new(0.5, 0, 1, -4)
+    hitBg.Position = UDim2.new(0.5, 0, 0, 2)
+    hitBg.BackgroundColor3 = style.ItemColor
+    hitBg.Parent = row
+    makeCorner(hitBg, 4)
+    makeStroke(hitBg, style.BorderColor, 0)
 
-            local hit = makeButton(hitBg)
-            hit.Size = UDim2.fromScale(1, 1)
-            pressAnimation(hit)
+    local hit = makeButton(hitBg)
+    hit.Size = UDim2.fromScale(1, 1)
+    pressAnimation(hit)
 
-            local valueLabel = makeLabel(hitBg, tostring(selected), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
-            valueLabel.Size = UDim2.fromScale(1, 1)
+    local valueLabel = makeLabel(hitBg, tostring(selected), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
+    valueLabel.Size = UDim2.fromScale(1, 1)
 
-            local popup = Instance.new("Frame")
-            popup.Visible = false
-            popup.ClipsDescendants = true
-            popup.BackgroundColor3 = style.ItemColor
-            popup.BackgroundTransparency = 1
-            popup.ZIndex = 200
-            popup.Parent = menuRef.Root
-            makeCorner(popup, 6)
-            local popupStroke = makeStroke(popup, style.BorderColor, 1)
-            popupStroke.ZIndex = 201
+    local popup = Instance.new("Frame")
+    popup.Visible = false
+    popup.ClipsDescendants = true
+    popup.BackgroundColor3 = style.ItemColor
+    popup.BackgroundTransparency = 1
+    popup.ZIndex = 200
+    popup.Parent = menuRef.Root
+    makeCorner(popup, 6)
+    
+    local popupStroke = makeStroke(popup, style.BorderColor, 1)
+    popupStroke.ZIndex = 201
 
-            local popupPad = Instance.new("UIPadding")
-            popupPad.PaddingTop = UDim.new(0, 0)
-            popupPad.PaddingBottom = UDim.new(0, 0)
-            popupPad.PaddingLeft = UDim.new(0, 0)
-            popupPad.PaddingRight = UDim.new(0, 0)
-            popupPad.Parent = popup
+    -- Контейнер для списка, чтобы Padding не мешал UICorner основного попапа
+    local listContainer = Instance.new("Frame")
+    listContainer.Size = UDim2.fromScale(1, 1)
+    listContainer.BackgroundTransparency = 1
+    listContainer.Parent = popup
 
-            local panelLayout = Instance.new("UIListLayout")
-            panelLayout.Padding = UDim.new(0, 2)
-            panelLayout.Parent = popup
+    local panelLayout = Instance.new("UIListLayout")
+    panelLayout.Padding = UDim.new(0, 0) -- Убрал отступ, чтобы кнопки прилегали плотно к краям
+    panelLayout.Parent = listContainer
 
-            local popupScale = Instance.new("UIScale")
-            popupScale.Scale = 0.96
-            popupScale.Parent = popup
+    local popupScale = Instance.new("UIScale")
+    popupScale.Scale = 0.96
+    popupScale.Parent = popup
 
-            local function getPopupWidth()
-                return math.max(hitBg.AbsoluteSize.X, 140)
-            end
+    local function getPopupWidth()
+        return math.max(hitBg.AbsoluteSize.X, 140)
+    end
 
-            local function containsPoint(gui, point)
-                local pos = gui.AbsolutePosition
-                local size = gui.AbsoluteSize
-                return point.X >= pos.X and point.X <= pos.X + size.X and point.Y >= pos.Y and point.Y <= pos.Y + size.Y
-            end
+    local function containsPoint(gui, point)
+        local pos = gui.AbsolutePosition
+        local size = gui.AbsoluteSize
+        return point.X >= pos.X and point.X <= pos.X + size.X and point.Y >= pos.Y and point.Y <= pos.Y + size.Y
+    end
 
-            local function refreshPopupPlacement()
-                if not hitBg or not hitBg.Parent then return end
-                local rootPos = menuRef.Root.AbsolutePosition
-                local rootSize = menuRef.Root.AbsoluteSize
-                local rowPos = row.AbsolutePosition
-                local popupWidth = getPopupWidth()
+    local function refreshPopupPlacement()
+        if not hitBg or not hitBg.Parent then return end
+        local rootPos = menuRef.Root.AbsolutePosition
+        local rootSize = menuRef.Root.AbsoluteSize
+        local rowPos = row.AbsolutePosition
+        local popupWidth = getPopupWidth()
 
-                local desiredX = rowPos.X - rootPos.X + row.AbsoluteSize.X + 8
-                local desiredY = rowPos.Y - rootPos.Y
+        local desiredX = rowPos.X - rootPos.X + row.AbsoluteSize.X + 8
+        local desiredY = rowPos.Y - rootPos.Y
 
-                local maxX = math.max(8, rootSize.X - popupWidth - 8)
-                local maxY = math.max(8, rootSize.Y - math.max(popup.AbsoluteSize.Y, optionsHeight) - 8)
+        local maxX = math.max(8, rootSize.X - popupWidth - 8)
+        local maxY = math.max(8, rootSize.Y - math.max(popup.AbsoluteSize.Y, optionsHeight) - 8)
 
-                if desiredX > maxX then
-                    desiredX = rowPos.X - rootPos.X - popupWidth - 8
-                end
-
-                popup.Position = UDim2.fromOffset(
-                    math.clamp(desiredX, 8, maxX),
-                    math.clamp(desiredY, 8, maxY)
-                )
-
-                if not expanded then
-                    popup.Size = UDim2.fromOffset(popupWidth, 0)
-                end
-            end
-
-            local function updateStyles()
-                for optionName, ref in pairs(optionRows) do
-                    local active = (selected == optionName)
-                    ref.Button:SetAttribute("OrigBG", active and 0 or 1)
-                    tween(ref.Text, 0.12, { TextColor3 = active and style.AccentColor or style.SubTextColor })
-                    tween(ref.Button, 0.12, { BackgroundTransparency = active and 0 or 1 })
-                end
-            end
-
-            local function setExpanded(state)
-                expanded = state
-                if expanded then
-                    popup.Visible = true
-                    refreshPopupPlacement()
-                    if not rsConnection then
-                        rsConnection = RunService.RenderStepped:Connect(refreshPopupPlacement)
-                        table.insert(menuRef.Connections, rsConnection)
-                    end
-                    local popupWidth = getPopupWidth()
-                    popup.Size = UDim2.fromOffset(popupWidth, optionsHeight)
-                    popup.BackgroundTransparency = 1
-                    popupStroke.Transparency = 1
-                    popupScale.Scale = 0.96
-                    tweenDescendants(popup, 0, "hide")
-                    tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
-                    tween(popup, 0.16, { BackgroundTransparency = 0 }, Enum.EasingStyle.Quad)
-                    tween(popupStroke, 0.2, { Transparency = 0 }, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-                    tweenDescendants(popup, 0.16, "show")
-                else
-                    if rsConnection then
-                        rsConnection:Disconnect()
-                        rsConnection = nil
-                    end
-                    tween(popupScale, 0.12, { Scale = 0.96 }, Enum.EasingStyle.Quad)
-                    tween(popup, 0.12, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
-                    tween(popupStroke, 0.12, { Transparency = 1 }, Enum.EasingStyle.Quad)
-                    tweenDescendants(popup, 0.12, "hide")
-                    task.delay(0.12, function()
-                        if popup and popup.Parent and not expanded then popup.Visible = false end
-                    end)
-                end
-            end
-
-            local function clearOptions()
-                for _, ref in pairs(optionRows) do
-                    if ref.Button then ref.Button:Destroy() end
-                end
-                optionRows = {}
-                optionsHeight = 0
-            end
-
-            local function rebuild(newOptions)
-                clearOptions()
-                local optionCount = 0
-                local seen = {}
-                for _, optionName in ipairs(normalizeOptions(newOptions)) do
-                    if not seen[optionName] then
-                        seen[optionName] = true
-                        optionCount = optionCount + 1
-
-                        local optionButton = Instance.new("TextButton")
-                        optionButton.AutoButtonColor = false
-                        optionButton.Text = ""
-                        optionButton.BackgroundTransparency = 1
-                        optionButton.BackgroundColor3 = style.ItemColor
-                        optionButton.Size = UDim2.new(1, 0, 0, 26)
-                        optionButton.ZIndex = 202
-                        optionButton.Parent = popup
-                        makeCorner(optionButton, 0)
-
-                        local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
-                        optionText.Size = UDim2.fromScale(1, 1)
-                        optionText.ZIndex = 203
-
-                        optionRows[optionName] = { Button = optionButton, Text = optionText }
-
-                        optionButton.MouseButton1Click:Connect(function()
-                            selected = optionName
-                            valueLabel.Text = optionName
-                            updateStyles()
-                            setExpanded(false)
-                            if data.Callback then data.Callback(optionName) end
-                            if controlRef then menuRef:_emitChanged(controlRef.Flag) end
-                        end)
-                    end
-                end
-                optionsHeight = optionCount * 26
-                if optionRows[selected] == nil then
-                    for optionName in pairs(optionRows) do
-                        selected = optionName
-                        break
-                    end
-                    selected = selected or "None"
-                end
-                valueLabel.Text = tostring(selected)
-                refreshPopupPlacement()
-                updateStyles()
-            end
-
-            local function setSelected(nextValue, silent)
-                local str = tostring(nextValue)
-                if optionRows[str] then
-                    selected = str
-                    valueLabel.Text = str
-                    updateStyles()
-                    if not silent and data.Callback then data.Callback(str) end
-                    if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
-                end
-            end
-
-            controlRef = menuRef:_registerControl({
-                Flag = data.Flag or data.Text,
-                Name = data.Text or "dropdown",
-                Type = "Dropdown",
-                Get = function() return selected end,
-                Set = function(v, silent) setSelected(v, silent) end,
-            })
-
-            hit.MouseButton1Click:Connect(function() setExpanded(not expanded) end)
-
-            table.insert(menuRef.Connections, row:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-                if not expanded then refreshPopupPlacement() end
-            end))
-
-            table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
-                if not expanded then return end
-                if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-                if not containsPoint(hitBg, input.Position) and not containsPoint(popup, input.Position) then
-                    setExpanded(false)
-                end
-            end))
-
-            rebuild(options)
-            cacheOriginalTransparency(popup)
-            cacheOriginalTransparency(row)
-            return {
-                Set = function(a, b, c)
-                    local value, silent
-                    if typeof(a) == "table" and a.SetOptions ~= nil and a.Get ~= nil then
-                        value, silent = b, c
-                    else
-                        value, silent = a, b
-                    end
-                    setSelected(value, silent)
-                end,
-                Get = function()
-                    return selected
-                end,
-                SetOptions = function(a, b)
-                    local newOptions
-                    if typeof(a) == "table" and a.SetOptions ~= nil and a.Get ~= nil then
-                        newOptions = b
-                    else
-                        newOptions = a
-                    end
-                    rebuild(newOptions)
-                end,
-                Flag = controlRef and controlRef.Flag or nil,
-            }
+        if desiredX > maxX then
+            desiredX = rowPos.X - rootPos.X - popupWidth - 8
         end
+
+        popup.Position = UDim2.fromOffset(
+            math.clamp(desiredX, 8, maxX),
+            math.clamp(desiredY, 8, maxY)
+        )
+
+        if not expanded then
+            popup.Size = UDim2.fromOffset(popupWidth, 0)
+        end
+    end
+
+    local function updateStyles()
+        for optionName, ref in pairs(optionRows) do
+            local active = (selected == optionName)
+            ref.Button:SetAttribute("OrigBG", active and 0 or 1)
+            tween(ref.Text, 0.12, { TextColor3 = active and style.AccentColor or style.SubTextColor })
+            tween(ref.Button, 0.12, { BackgroundTransparency = active and 0 or 1 })
+        end
+    end
+
+    local function setExpanded(state)
+        expanded = state
+        if expanded then
+            popup.Visible = true
+            refreshPopupPlacement()
+            if not rsConnection then
+                rsConnection = RunService.RenderStepped:Connect(refreshPopupPlacement)
+                table.insert(menuRef.Connections, rsConnection)
+            end
+            local popupWidth = getPopupWidth()
+            popup.Size = UDim2.fromOffset(popupWidth, optionsHeight)
+            
+            -- Сбрасываем прозрачность перед показом
+            popup.BackgroundTransparency = 1
+            popupStroke.Transparency = 1
+            popupScale.Scale = 0.96
+            
+            tweenDescendants(popup, 0, "hide")
+            
+            tween(popupScale, 0.16, { Scale = 1 }, Enum.EasingStyle.Back)
+            tween(popup, 0.16, { BackgroundTransparency = 0 })
+            tween(popupStroke, 0.16, { Transparency = 0 })
+            
+            tweenDescendants(popup, 0.16, "show")
+        else
+            if rsConnection then
+                rsConnection:Disconnect()
+                rsConnection = nil
+            end
+            local hideDur = 0.12
+            tween(popupScale, hideDur, { Scale = 0.96 }, Enum.EasingStyle.Quad)
+            tween(popup, hideDur, { BackgroundTransparency = 1 }, Enum.EasingStyle.Quad)
+            tween(popupStroke, hideDur, { Transparency = 1 }, Enum.EasingStyle.Quad)
+            tweenDescendants(popup, hideDur, "hide")
+            task.delay(hideDur, function()
+                if popup and popup.Parent and not expanded then popup.Visible = false end
+            end)
+        end
+    end
+
+    local function clearOptions()
+        for _, ref in pairs(optionRows) do
+            if ref.Button then ref.Button:Destroy() end
+        end
+        optionRows = {}
+        optionsHeight = 0
+    end
+
+    local function rebuild(newOptions)
+        clearOptions()
+        local optList = normalizeOptions(newOptions)
+        local optionCount = 0
+        local seen = {}
+        for _, optionName in ipairs(optList) do
+            if not seen[optionName] then
+                seen[optionName] = true
+                optionCount = optionCount + 1
+
+                local optionButton = Instance.new("TextButton")
+                optionButton.AutoButtonColor = false
+                optionButton.Text = ""
+                optionButton.BackgroundTransparency = 1
+                optionButton.BackgroundColor3 = style.AccentColor -- Цвет при наведении/выборе
+                optionButton.Size = UDim2.new(1, 0, 0, 26)
+                optionButton.ZIndex = 202
+                optionButton.Parent = listContainer
+
+                local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
+                optionText.Size = UDim2.fromScale(1, 1)
+                optionText.ZIndex = 203
+
+                optionRows[optionName] = { Button = optionButton, Text = optionText }
+
+                optionButton.MouseButton1Click:Connect(function()
+                    selected = optionName
+                    valueLabel.Text = optionName
+                    updateStyles()
+                    setExpanded(false)
+                    if data.Callback then data.Callback(optionName) end
+                    if controlRef then menuRef:_emitChanged(controlRef.Flag) end
+                end)
+            end
+        end
+        optionsHeight = optionCount * 26
+        if optionRows[selected] == nil and optionCount > 0 then
+            selected = optList[1]
+        end
+        valueLabel.Text = tostring(selected)
+        updateStyles()
+    end
+
+    local function setSelected(nextValue, silent)
+        local str = tostring(nextValue)
+        if optionRows[str] then
+            selected = str
+            valueLabel.Text = str
+            updateStyles()
+            if not silent and data.Callback then data.Callback(str) end
+            if not silent and controlRef then menuRef:_emitChanged(controlRef.Flag) end
+        end
+    end
+
+    controlRef = menuRef:_registerControl({
+        Flag = data.Flag or data.Text,
+        Name = data.Text or "dropdown",
+        Type = "Dropdown",
+        Get = function() return selected end,
+        Set = function(v, silent) setSelected(v, silent) end,
+    })
+
+    hit.MouseButton1Click:Connect(function() setExpanded(not expanded) end)
+
+    table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
+        if not expanded then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        if not containsPoint(hitBg, input.Position) and not containsPoint(popup, input.Position) then
+            setExpanded(false)
+        end
+    end))
+
+    rebuild(options)
+    cacheOriginalTransparency(popup)
+    cacheOriginalTransparency(row)
+
+    return {
+        Set = function(a, b, c)
+            local value, silent = (typeof(a) == "table" and a.SetOptions ~= nil) and b or a, (typeof(a) == "table" and a.SetOptions ~= nil) and c or b
+            setSelected(value, silent)
+        end,
+        Get = function() return selected end,
+        SetOptions = function(a, b)
+            local newOptions = (typeof(a) == "table" and a.SetOptions ~= nil) and b or a
+            rebuild(newOptions)
+        end,
+        Flag = controlRef and controlRef.Flag or nil,
+    }
+end
 
 function api:AddMultiBoolean(data)
     data = data or {}
