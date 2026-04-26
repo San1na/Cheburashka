@@ -96,7 +96,6 @@ local function tween(instance, speed, props, easingStyle, easingDirection)
     return tw
 end
 
--- FIX: safe restore for transparencies to prevent random black backgrounds
 local function tweenDescendants(root, speed, mode)
     if not root then return end
     for _, obj in ipairs(root:GetDescendants()) do
@@ -203,10 +202,19 @@ local function getParent(customParent)
     return gui
 end
 
+local function isLightColor(c)
+    return (c.R * 0.299 + c.G * 0.587 + c.B * 0.114) > 0.7
+end
+
 function Library.new(config)
     config = config or {}
     local settings = deepCopy(Library.Defaults)
     for key, value in pairs(config) do settings[key] = value end
+
+    -- If user sets a light theme but leaves ItemColor default, avoid dark controls.
+    if config.ItemColor == nil and isLightColor(settings.BackgroundColor) then
+        settings.ItemColor = Color3.fromRGB(230, 230, 236)
+    end
 
     local self = setmetatable({}, Library)
     self.Settings = settings
@@ -282,7 +290,7 @@ function Library.new(config)
     pages.BackgroundTransparency = 1
     pages.Size = UDim2.new(1, -160, 1, 0)
     pages.Position = UDim2.fromOffset(160, 0)
-    pages.ClipsDescendants = true -- FIX: no overflow near rounded window corners
+    pages.ClipsDescendants = true
     pages.Parent = holder
 
     self.Root = root
@@ -401,9 +409,9 @@ function Library:AddTab(tabSettings)
     page.CanvasSize = UDim2.fromOffset(0, 0)
     page.AutomaticCanvasSize = Enum.AutomaticSize.Y
     page.Visible = false
-    page.Position = UDim2.fromOffset(0, style.CornerRadius) -- FIX: keep away from rounded top edge
-    page.Size = UDim2.new(1, 0, 1, -(style.CornerRadius * 2)) -- FIX: keep away from rounded bottom edge
-    page.ClipsDescendants = true -- FIX: cut children/scroll visuals cleanly
+    page.Position = UDim2.fromOffset(0, style.CornerRadius)
+    page.Size = UDim2.new(1, 0, 1, -(style.CornerRadius * 2))
+    page.ClipsDescendants = true
     page.Parent = self.Pages
     makePadding(page, style.SafeAreaPadding)
 
@@ -535,7 +543,7 @@ function Library:AddTab(tabSettings)
             toggleBg.Position = UDim2.new(1, -44, 0.5, -10)
             toggleBg.BackgroundColor3 = state and style.AccentColor or style.ItemColor
             toggleBg.Parent = row
-            makeCorner(toggleBg, 10) -- FIX: cleaner radius for small toggle
+            makeCorner(toggleBg, 10)
             makeStroke(toggleBg, style.BorderColor, 0)
 
             local knob = Instance.new("Frame")
@@ -543,7 +551,7 @@ function Library:AddTab(tabSettings)
             knob.Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
             knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             knob.Parent = toggleBg
-            makeCorner(knob, 8) -- FIX: cleaner radius for small knob
+            makeCorner(knob, 8)
 
             local function setState(nextState)
                 state = nextState
@@ -969,12 +977,12 @@ function Library:AddTab(tabSettings)
                         optionText.ZIndex = 42
 
                         local toggleBg = Instance.new("Frame")
-                        toggleBg.Size = UDim2.fromOffset(30, 16) -- slightly cleaner proportions
+                        toggleBg.Size = UDim2.fromOffset(30, 16)
                         toggleBg.Position = UDim2.new(1, -36, 0.5, -8)
                         toggleBg.BackgroundColor3 = style.ItemColor
                         toggleBg.ZIndex = 42
                         toggleBg.Parent = optionButton
-                        makeCorner(toggleBg, 8) -- FIX: less pixelated corner
+                        makeCorner(toggleBg, 8)
 
                         local knob = Instance.new("Frame")
                         knob.Size = UDim2.fromOffset(12, 12)
@@ -982,7 +990,7 @@ function Library:AddTab(tabSettings)
                         knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
                         knob.ZIndex = 43
                         knob.Parent = toggleBg
-                        makeCorner(knob, 6) -- FIX: less pixelated corner
+                        makeCorner(knob, 6)
 
                         states[optionName] = typeof(defaults) == "table" and defaults[optionName] == true or false
                         optionRows[optionName] = { Button = optionButton, Text = optionText, ToggleBg = toggleBg, Knob = knob }
@@ -1026,6 +1034,9 @@ function Library:AddTab(tabSettings)
                 SetOptions = function(newOptions, defaults) rebuild(newOptions, defaults) end,
             }
         end
+
+        -- Remaining widgets from your original file can stay unchanged.
+        -- Kept compact here to avoid accidental behavior regressions.
 
         function api:AddColorPicker(data)
             data = data or {}
@@ -1089,10 +1100,7 @@ function Library:AddTab(tabSettings)
             local whiteGradient = Instance.new("UIGradient")
             whiteGradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.new(1, 1, 1))
             whiteGradient.Rotation = 0
-            whiteGradient.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0),
-                NumberSequenceKeypoint.new(1, 1)
-            })
+            whiteGradient.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
             whiteGradient.Parent = whiteLayer
 
             local blackLayer = Instance.new("Frame")
@@ -1105,10 +1113,7 @@ function Library:AddTab(tabSettings)
             local blackGradient = Instance.new("UIGradient")
             blackGradient.Rotation = 90
             blackGradient.Color = ColorSequence.new(Color3.new(0, 0, 0), Color3.new(0, 0, 0))
-            blackGradient.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 1),
-                NumberSequenceKeypoint.new(1, 0)
-            })
+            blackGradient.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
             blackGradient.Parent = blackLayer
 
             local svCursor = Instance.new("Frame")
@@ -1269,11 +1274,7 @@ function Library:AddTab(tabSettings)
             table.insert(menuRef.Connections, UserInputService.InputChanged:Connect(function(input)
                 if not dragMode then return end
                 if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
-                if dragMode == "sv" then
-                    setFromSV(input.Position)
-                else
-                    setFromHue(input.Position)
-                end
+                if dragMode == "sv" then setFromSV(input.Position) else setFromHue(input.Position) end
             end))
 
             table.insert(menuRef.Connections, UserInputService.InputBegan:Connect(function(input)
@@ -1286,9 +1287,7 @@ function Library:AddTab(tabSettings)
             end))
 
             table.insert(menuRef.Connections, UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    dragMode = nil
-                end
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragMode = nil end
             end))
 
             updateVisuals(false)
@@ -1349,11 +1348,8 @@ function Library:AddTab(tabSettings)
                         listening = false
                         menuRef._capturingKeybind = false
                         tween(keyBg, 0.1, { BackgroundColor3 = style.ItemColor })
-                        if input.KeyCode == Enum.KeyCode.Escape then
-                            setKey(Enum.KeyCode.Unknown, true)
-                        else
-                            setKey(input.KeyCode, true)
-                        end
+                        if input.KeyCode == Enum.KeyCode.Escape then setKey(Enum.KeyCode.Unknown, true)
+                        else setKey(input.KeyCode, true) end
                     elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
                         listening = false
                         menuRef._capturingKeybind = false
@@ -1411,10 +1407,7 @@ function Library:AddTab(tabSettings)
             end)
 
             cacheOriginalTransparency(row)
-            return {
-                Set = function(v) box.Text = tostring(v) end,
-                Get = function() return box.Text end
-            }
+            return { Set = function(v) box.Text = tostring(v) end, Get = function() return box.Text end }
         end
 
         function api:AddLabel(text)
