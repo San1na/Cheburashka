@@ -1150,32 +1150,40 @@ function Library:AddTab(tabSettings)
             local maxDropdownHeight = data.MaxPopupHeight or 150
 
             local row = Instance.new("Frame")
-            row.BackgroundColor3 = style.ItemColor
+            row.BackgroundTransparency = 1
             row.Size = UDim2.new(1, 0, 0, closedHeight)
             row.ClipsDescendants = true
             row.Parent = section
-            makeCorner(row, 6)
-            makeStroke(row, style.BorderColor, 0)
 
-            local topBar = makeButton(row)
-            topBar.Size = UDim2.new(1, 0, 0, closedHeight)
-            pressAnimation(topBar)
+            local titleLabel = makeLabel(row, data.Text or "Dropdown", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+            titleLabel.Size = UDim2.new(0.5, -10, 0, closedHeight)
 
-            local title = makeLabel(topBar, data.Text or "Dropdown", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-            title.Size = UDim2.new(1, -140, 1, 0)
-            title.Position = UDim2.fromOffset(10, 0)
+            local hitBg = Instance.new("Frame")
+            hitBg.Size = UDim2.new(0.5, 0, 0, closedHeight - 4)
+            hitBg.Position = UDim2.new(0.5, 0, 0, 2)
+            hitBg.BackgroundColor3 = style.ItemColor
+            hitBg.Parent = row
+            makeCorner(hitBg, 6)
+            local hitStroke = makeStroke(hitBg, style.BorderColor, 0)
 
-            local valueLabel = makeLabel(topBar, tostring(selected), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
-            valueLabel.Size = UDim2.new(0, 100, 1, 0)
-            valueLabel.Position = UDim2.new(1, -125, 0, 0)
+            local topBar = makeButton(hitBg)
+            topBar.Size = UDim2.fromScale(1, 1)
 
-            local icon = makeLabel(topBar, "+", style.TitleTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
-            icon.Size = UDim2.new(0, 20, 1, 0)
-            icon.Position = UDim2.new(1, -25, 0, 0)
+            local valueLabel = makeLabel(hitBg, tostring(selected), style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
+            valueLabel.Size = UDim2.new(1, -30, 1, 0)
+            valueLabel.Position = UDim2.new(0, -10, 0, 0)
+
+            local icon = Instance.new("ImageLabel")
+            icon.BackgroundTransparency = 1
+            icon.Size = UDim2.fromOffset(14, 14)
+            icon.Position = UDim2.new(1, -20, 0.5, -7)
+            icon.Image = "rbxassetid://10888331510"
+            icon.ImageColor3 = style.SubTextColor
+            icon.Parent = hitBg
 
             local content = Instance.new("ScrollingFrame")
-            content.Size = UDim2.new(1, -20, 1, -closedHeight - 10)
-            content.Position = UDim2.fromOffset(10, closedHeight + 5)
+            content.Size = UDim2.new(0.5, 0, 1, -closedHeight - 8)
+            content.Position = UDim2.new(0.5, 0, 0, closedHeight + 4)
             content.BackgroundTransparency = 1
             content.ScrollBarThickness = 2
             content.ScrollBarImageColor3 = style.BorderColor
@@ -1183,17 +1191,24 @@ function Library:AddTab(tabSettings)
             content.Parent = row
 
             local contentLayout = Instance.new("UIListLayout")
-            contentLayout.Padding = UDim.new(0, 4)
+            contentLayout.Padding = UDim.new(0, 2)
             contentLayout.Parent = content
+
+            topBar.MouseEnter:Connect(function() tween(hitBg, 0.2, {BackgroundColor3 = style.BorderColor}) end)
+            topBar.MouseLeave:Connect(function() tween(hitBg, 0.2, {BackgroundColor3 = style.ItemColor}) end)
+            topBar.MouseButton1Down:Connect(function() tween(hitBg, 0.1, {BackgroundColor3 = style.SurfaceColor}) end)
+            topBar.MouseButton1Up:Connect(function() tween(hitBg, 0.2, {BackgroundColor3 = style.BorderColor}) end)
 
             local function setExpanded(state)
                 expanded = state
                 local targetHeight = closedHeight
                 if expanded then
-                    targetHeight = closedHeight + math.min(optionsHeight, maxDropdownHeight) + 10
-                    tween(icon, 0.2, {Rotation = 45})
+                    targetHeight = closedHeight + math.min(optionsHeight, maxDropdownHeight) + 8
+                    tween(icon, 0.2, {Rotation = 90})
+                    tween(hitStroke, 0.2, {Color = style.AccentColor})
                 else
                     tween(icon, 0.2, {Rotation = 0})
+                    tween(hitStroke, 0.2, {Color = style.BorderColor})
                 end
                 tween(row, 0.25, {Size = UDim2.new(1, 0, 0, targetHeight)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             end
@@ -1202,6 +1217,7 @@ function Library:AddTab(tabSettings)
                 for optionName, ref in pairs(optionRows) do
                     local active = (selected == optionName)
                     tween(ref.Text, 0.12, {TextColor3 = active and style.AccentColor or style.SubTextColor})
+                    tween(ref.Check, 0.12, {ImageTransparency = active and 0 or 1})
                 end
             end
 
@@ -1238,15 +1254,26 @@ function Library:AddTab(tabSettings)
                         optionButton.Text = ""
                         optionButton.BackgroundTransparency = 1
                         optionButton.BackgroundColor3 = style.SurfaceColor
-                        optionButton.Size = UDim2.new(1, 0, 0, 24)
+                        optionButton.Size = UDim2.new(1, 0, 0, 22)
                         optionButton.Parent = content
                         makeCorner(optionButton, 4)
 
                         local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
-                        optionText.Size = UDim2.new(1, -16, 1, 0)
+                        optionText.Size = UDim2.new(1, -24, 1, 0)
                         optionText.Position = UDim2.fromOffset(8, 0)
 
-                        optionRows[optionName] = {Button = optionButton, Text = optionText}
+                        local checkFill = Instance.new("Frame")
+                        checkFill.Size = UDim2.fromOffset(6, 6)
+                        checkFill.Position = UDim2.new(1, -14, 0.5, -3)
+                        checkFill.BackgroundColor3 = style.AccentColor
+                        checkFill.BackgroundTransparency = 1
+                        checkFill.Parent = optionButton
+                        makeCorner(checkFill, 3)
+
+                        optionRows[optionName] = {Button = optionButton, Text = optionText, Check = checkFill}
+
+                        optionButton.MouseEnter:Connect(function() tween(optionButton, 0.15, {BackgroundTransparency = 0.5}) end)
+                        optionButton.MouseLeave:Connect(function() tween(optionButton, 0.15, {BackgroundTransparency = 1}) end)
 
                         optionButton.MouseButton1Click:Connect(function()
                             setSelected(optionName, false)
@@ -1254,7 +1281,7 @@ function Library:AddTab(tabSettings)
                         end)
                     end
                 end
-                optionsHeight = (optionCount * 24) + (math.max(optionCount - 1, 0) * 4)
+                optionsHeight = (optionCount * 22) + (math.max(optionCount - 1, 0) * 2)
                 content.CanvasSize = UDim2.fromOffset(0, optionsHeight)
                 if optionRows[selected] == nil then
                     for optionName in pairs(optionRows) do
@@ -1318,32 +1345,40 @@ function Library:AddTab(tabSettings)
             local maxDropdownHeight = data.MaxPopupHeight or 150
 
             local row = Instance.new("Frame")
-            row.BackgroundColor3 = style.ItemColor
+            row.BackgroundTransparency = 1
             row.Size = UDim2.new(1, 0, 0, closedHeight)
             row.ClipsDescendants = true
             row.Parent = section
-            makeCorner(row, 6)
-            makeStroke(row, style.BorderColor, 0)
 
-            local topBar = makeButton(row)
-            topBar.Size = UDim2.new(1, 0, 0, closedHeight)
-            pressAnimation(topBar)
+            local titleLabel = makeLabel(row, data.Text or "MultiSelect", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+            titleLabel.Size = UDim2.new(0.5, -10, 0, closedHeight)
 
-            local title = makeLabel(topBar, data.Text or "MultiSelect", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-            title.Size = UDim2.new(1, -140, 1, 0)
-            title.Position = UDim2.fromOffset(10, 0)
+            local hitBg = Instance.new("Frame")
+            hitBg.Size = UDim2.new(0.5, 0, 0, closedHeight - 4)
+            hitBg.Position = UDim2.new(0.5, 0, 0, 2)
+            hitBg.BackgroundColor3 = style.ItemColor
+            hitBg.Parent = row
+            makeCorner(hitBg, 6)
+            local hitStroke = makeStroke(hitBg, style.BorderColor, 0)
 
-            local valueLabel = makeLabel(topBar, "None", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
-            valueLabel.Size = UDim2.new(0, 100, 1, 0)
-            valueLabel.Position = UDim2.new(1, -125, 0, 0)
+            local topBar = makeButton(hitBg)
+            topBar.Size = UDim2.fromScale(1, 1)
 
-            local icon = makeLabel(topBar, "+", style.TitleTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
-            icon.Size = UDim2.new(0, 20, 1, 0)
-            icon.Position = UDim2.new(1, -25, 0, 0)
+            local valueLabel = makeLabel(hitBg, "None", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Right)
+            valueLabel.Size = UDim2.new(1, -30, 1, 0)
+            valueLabel.Position = UDim2.new(0, -10, 0, 0)
+
+            local icon = Instance.new("ImageLabel")
+            icon.BackgroundTransparency = 1
+            icon.Size = UDim2.fromOffset(14, 14)
+            icon.Position = UDim2.new(1, -20, 0.5, -7)
+            icon.Image = "rbxassetid://10888331510"
+            icon.ImageColor3 = style.SubTextColor
+            icon.Parent = hitBg
 
             local content = Instance.new("ScrollingFrame")
-            content.Size = UDim2.new(1, -20, 1, -closedHeight - 10)
-            content.Position = UDim2.fromOffset(10, closedHeight + 5)
+            content.Size = UDim2.new(0.5, 0, 1, -closedHeight - 8)
+            content.Position = UDim2.new(0.5, 0, 0, closedHeight + 4)
             content.BackgroundTransparency = 1
             content.ScrollBarThickness = 2
             content.ScrollBarImageColor3 = style.BorderColor
@@ -1351,17 +1386,24 @@ function Library:AddTab(tabSettings)
             content.Parent = row
 
             local contentLayout = Instance.new("UIListLayout")
-            contentLayout.Padding = UDim.new(0, 4)
+            contentLayout.Padding = UDim.new(0, 2)
             contentLayout.Parent = content
+
+            topBar.MouseEnter:Connect(function() tween(hitBg, 0.2, {BackgroundColor3 = style.BorderColor}) end)
+            topBar.MouseLeave:Connect(function() tween(hitBg, 0.2, {BackgroundColor3 = style.ItemColor}) end)
+            topBar.MouseButton1Down:Connect(function() tween(hitBg, 0.1, {BackgroundColor3 = style.SurfaceColor}) end)
+            topBar.MouseButton1Up:Connect(function() tween(hitBg, 0.2, {BackgroundColor3 = style.BorderColor}) end)
 
             local function setExpanded(state)
                 expanded = state
                 local targetHeight = closedHeight
                 if expanded then
-                    targetHeight = closedHeight + math.min(optionsHeight, maxDropdownHeight) + 10
-                    tween(icon, 0.2, {Rotation = 45})
+                    targetHeight = closedHeight + math.min(optionsHeight, maxDropdownHeight) + 8
+                    tween(icon, 0.2, {Rotation = 90})
+                    tween(hitStroke, 0.2, {Color = style.AccentColor})
                 else
                     tween(icon, 0.2, {Rotation = 0})
+                    tween(hitStroke, 0.2, {Color = style.BorderColor})
                 end
                 tween(row, 0.25, {Size = UDim2.new(1, 0, 0, targetHeight)}, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             end
@@ -1389,9 +1431,8 @@ function Library:AddTab(tabSettings)
                 local ref = optionRows[option]
                 if not ref then return end
                 local active = states[option] == true
-                tween(ref.ToggleBg, 0.15, {BackgroundColor3 = active and style.AccentColor or style.SurfaceColor}, Enum.EasingStyle.Quad)
-                tween(ref.Knob, 0.15, {Position = active and UDim2.new(1, -14, 0.5, -6) or UDim2.new(0, 2, 0.5, -6)}, Enum.EasingStyle.Quad)
                 tween(ref.Text, 0.12, {TextColor3 = active and style.TextColor or style.SubTextColor})
+                tween(ref.CheckFill, 0.15, {Size = active and UDim2.fromScale(0.7, 0.7) or UDim2.fromScale(0, 0)})
             end
 
             local function setOption(option, state, silent)
@@ -1447,36 +1488,43 @@ function Library:AddTab(tabSettings)
                         optionButton.AutoButtonColor = false
                         optionButton.Text = ""
                         optionButton.BackgroundTransparency = 1
-                        optionButton.Size = UDim2.new(1, 0, 0, 24)
+                        optionButton.BackgroundColor3 = style.SurfaceColor
+                        optionButton.Size = UDim2.new(1, 0, 0, 22)
                         optionButton.Parent = content
+                        makeCorner(optionButton, 4)
 
                         local optionText = makeLabel(optionButton, optionName, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
-                        optionText.Size = UDim2.new(1, -40, 1, 0)
+                        optionText.Size = UDim2.new(1, -24, 1, 0)
                         optionText.Position = UDim2.fromOffset(8, 0)
 
-                        local toggleBg = Instance.new("Frame")
-                        toggleBg.Size = UDim2.fromOffset(30, 16)
-                        toggleBg.Position = UDim2.new(1, -34, 0.5, -8)
-                        toggleBg.BackgroundColor3 = style.SurfaceColor
-                        toggleBg.Parent = optionButton
-                        makeCorner(toggleBg, 8)
+                        local checkboxBg = Instance.new("Frame")
+                        checkboxBg.Size = UDim2.fromOffset(14, 14)
+                        checkboxBg.Position = UDim2.new(1, -20, 0.5, -7)
+                        checkboxBg.BackgroundColor3 = style.ItemColor
+                        checkboxBg.Parent = optionButton
+                        makeCorner(checkboxBg, 4)
+                        makeStroke(checkboxBg, style.BorderColor, 0)
 
-                        local knob = Instance.new("Frame")
-                        knob.Size = UDim2.fromOffset(12, 12)
-                        knob.Position = UDim2.new(0, 2, 0.5, -6)
-                        knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-                        knob.Parent = toggleBg
-                        makeCorner(knob, 6)
+                        local checkFill = Instance.new("Frame")
+                        checkFill.Size = UDim2.fromScale(0, 0)
+                        checkFill.Position = UDim2.fromScale(0.5, 0.5)
+                        checkFill.AnchorPoint = Vector2.new(0.5, 0.5)
+                        checkFill.BackgroundColor3 = style.AccentColor
+                        checkFill.Parent = checkboxBg
+                        makeCorner(checkFill, 2)
 
                         states[optionName] = typeof(defaults) == "table" and defaults[optionName] == true or false
-                        optionRows[optionName] = {Button = optionButton, Text = optionText, ToggleBg = toggleBg, Knob = knob}
+                        optionRows[optionName] = {Button = optionButton, Text = optionText, CheckFill = checkFill}
+
+                        optionButton.MouseEnter:Connect(function() tween(optionButton, 0.15, {BackgroundTransparency = 0.5}) end)
+                        optionButton.MouseLeave:Connect(function() tween(optionButton, 0.15, {BackgroundTransparency = 1}) end)
 
                         optionButton.MouseButton1Click:Connect(function()
                             setOption(optionName, not states[optionName], false)
                         end)
                     end
                 end
-                optionsHeight = (optionCount * 24) + (math.max(optionCount - 1, 0) * 4)
+                optionsHeight = (optionCount * 22) + (math.max(optionCount - 1, 0) * 2)
                 content.CanvasSize = UDim2.fromOffset(0, optionsHeight)
                 for optionName in pairs(optionRows) do updateOptionVisual(optionName) end
                 updateSummary()
