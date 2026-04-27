@@ -43,6 +43,7 @@ Library.Defaults = {
     BlurTweenSpeed = 0.2,
     BlurBackdropTransparency = 0.75,
     RunUnloadOnClose = true,
+    DropdownArrowAssetId = 6031091004,
 }
 
 local function deepCopy(tbl)
@@ -1146,16 +1147,21 @@ function Library:AddTab(tabSettings)
             local optionRows = {}
             local selected = tostring(data.Default or options[1] or "None")
             local controlRef
+            local hasTitle = data.Text ~= nil and tostring(data.Text) ~= ""
+            local selectXScale = hasTitle and 0.44 or 0
+            local selectWidthScale = hasTitle and 0.56 or 1
 
             local row = makeRow(baseHeight)
-            row.ClipsDescendants = true
+            row.ClipsDescendants = false
 
-            local rowTitle = makeLabel(row, data.Text or "Dropdown", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-            rowTitle.Size = UDim2.new(0.45, 0, 0, baseHeight)
+            if hasTitle then
+                local rowTitle = makeLabel(row, tostring(data.Text), style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+                rowTitle.Size = UDim2.new(0.42, 0, 0, baseHeight)
+            end
 
             local selectBg = Instance.new("Frame")
-            selectBg.Size = UDim2.new(0.5, 0, 0, baseHeight - 4)
-            selectBg.Position = UDim2.new(0.5, 0, 0, 2)
+            selectBg.Size = UDim2.new(selectWidthScale, 0, 0, baseHeight - 2)
+            selectBg.Position = UDim2.new(selectXScale, 0, 0, 1)
             selectBg.BackgroundColor3 = style.ItemColor
             selectBg.Parent = row
             makeCorner(selectBg, 4)
@@ -1166,18 +1172,22 @@ function Library:AddTab(tabSettings)
             pressAnimation(selectBtn)
 
             local valueLabel = makeLabel(selectBg, selected, style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
-            valueLabel.Size = UDim2.new(1, -24, 1, 0)
+            valueLabel.Size = UDim2.new(1, -30, 1, 0)
             valueLabel.Position = UDim2.fromOffset(8, 0)
 
-            local arrow = makeLabel(selectBg, "v", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
-            arrow.Size = UDim2.fromOffset(16, 16)
-            arrow.Position = UDim2.new(1, -20, 0.5, -8)
+            local arrow = Instance.new("ImageLabel")
+            arrow.BackgroundTransparency = 1
+            arrow.Size = UDim2.fromOffset(12, 12)
+            arrow.Position = UDim2.new(1, -18, 0.5, -6)
+            arrow.Image = "rbxassetid://" .. tostring(data.ArrowAssetId or style.DropdownArrowAssetId)
+            arrow.ImageColor3 = style.SubTextColor
+            arrow.Parent = selectBg
 
             local optionsFrame = Instance.new("Frame")
             optionsFrame.BackgroundColor3 = style.SurfaceColor
             optionsFrame.BackgroundTransparency = 1
-            optionsFrame.Size = UDim2.new(0.5, 0, 0, 0)
-            optionsFrame.Position = UDim2.new(0.5, 0, 0, baseHeight + 4)
+            optionsFrame.Size = UDim2.new(selectWidthScale, 0, 0, 0)
+            optionsFrame.Position = UDim2.new(selectXScale, 0, 0, baseHeight + 5)
             optionsFrame.ClipsDescendants = true
             optionsFrame.Parent = row
             makeCorner(optionsFrame, 4)
@@ -1218,12 +1228,12 @@ function Library:AddTab(tabSettings)
                 local targetRowHeight = expanded and (baseHeight + 4 + optionsHeight) or baseHeight
                 tween(row, 0.18, { Size = UDim2.new(1, 0, 0, targetRowHeight) }, Enum.EasingStyle.Quart)
                 tween(optionsFrame, 0.18, {
-                    Size = UDim2.new(0.5, 0, 0, expanded and optionsHeight or 0),
-                    BackgroundTransparency = expanded and 0 or 1
+                    Size = UDim2.new(selectWidthScale, 0, 0, expanded and optionsHeight or 0),
+                    BackgroundTransparency = expanded and 0.04 or 1
                 }, Enum.EasingStyle.Quart)
                 tween(optionsStroke, 0.18, { Transparency = expanded and 0 or 1 }, Enum.EasingStyle.Quart)
                 tween(arrow, 0.18, { Rotation = expanded and 180 or 0 }, Enum.EasingStyle.Quart)
-                tween(arrow, 0.18, { TextColor3 = expanded and style.TextColor or style.SubTextColor }, Enum.EasingStyle.Quart)
+                tween(arrow, 0.18, { ImageColor3 = expanded and style.TextColor or style.SubTextColor }, Enum.EasingStyle.Quart)
             end
 
             local function setSelected(nextValue, silent)
@@ -1283,7 +1293,7 @@ function Library:AddTab(tabSettings)
                 refreshVisuals()
                 if not expanded then
                     row.Size = UDim2.new(1, 0, 0, baseHeight)
-                    optionsFrame.Size = UDim2.new(0.5, 0, 0, 0)
+                    optionsFrame.Size = UDim2.new(selectWidthScale, 0, 0, 0)
                 end
             end
 
@@ -1341,16 +1351,21 @@ function Library:AddTab(tabSettings)
             local optionHeight = 26
             local optionGap = 4
             local controlRef
+            local hasTitle = data.Text ~= nil and tostring(data.Text) ~= ""
+            local selectXScale = hasTitle and 0.44 or 0
+            local selectWidthScale = hasTitle and 0.56 or 1
 
             local row = makeRow(baseHeight)
-            row.ClipsDescendants = true
+            row.ClipsDescendants = false
 
-            local rowTitle = makeLabel(row, data.Text or "MultiBoolean", style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
-            rowTitle.Size = UDim2.new(0.45, 0, 0, baseHeight)
+            if hasTitle then
+                local rowTitle = makeLabel(row, tostring(data.Text), style.NormalTextSize, style.TextColor, style.Font, Enum.TextXAlignment.Left)
+                rowTitle.Size = UDim2.new(0.42, 0, 0, baseHeight)
+            end
 
             local selectBg = Instance.new("Frame")
-            selectBg.Size = UDim2.new(0.5, 0, 0, baseHeight - 4)
-            selectBg.Position = UDim2.new(0.5, 0, 0, 2)
+            selectBg.Size = UDim2.new(selectWidthScale, 0, 0, baseHeight - 2)
+            selectBg.Position = UDim2.new(selectXScale, 0, 0, 1)
             selectBg.BackgroundColor3 = style.ItemColor
             selectBg.Parent = row
             makeCorner(selectBg, 4)
@@ -1361,18 +1376,22 @@ function Library:AddTab(tabSettings)
             pressAnimation(selectBtn)
 
             local summaryLabel = makeLabel(selectBg, "None", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Left)
-            summaryLabel.Size = UDim2.new(1, -24, 1, 0)
+            summaryLabel.Size = UDim2.new(1, -30, 1, 0)
             summaryLabel.Position = UDim2.fromOffset(8, 0)
 
-            local arrow = makeLabel(selectBg, "v", style.SmallTextSize, style.SubTextColor, style.Font, Enum.TextXAlignment.Center)
-            arrow.Size = UDim2.fromOffset(16, 16)
-            arrow.Position = UDim2.new(1, -20, 0.5, -8)
+            local arrow = Instance.new("ImageLabel")
+            arrow.BackgroundTransparency = 1
+            arrow.Size = UDim2.fromOffset(12, 12)
+            arrow.Position = UDim2.new(1, -18, 0.5, -6)
+            arrow.Image = "rbxassetid://" .. tostring(data.ArrowAssetId or style.DropdownArrowAssetId)
+            arrow.ImageColor3 = style.SubTextColor
+            arrow.Parent = selectBg
 
             local optionsFrame = Instance.new("Frame")
             optionsFrame.BackgroundColor3 = style.SurfaceColor
             optionsFrame.BackgroundTransparency = 1
-            optionsFrame.Size = UDim2.new(0.5, 0, 0, 0)
-            optionsFrame.Position = UDim2.new(0.5, 0, 0, baseHeight + 4)
+            optionsFrame.Size = UDim2.new(selectWidthScale, 0, 0, 0)
+            optionsFrame.Position = UDim2.new(selectXScale, 0, 0, baseHeight + 5)
             optionsFrame.ClipsDescendants = true
             optionsFrame.Parent = row
             makeCorner(optionsFrame, 4)
@@ -1436,12 +1455,12 @@ function Library:AddTab(tabSettings)
                 local targetRowHeight = expanded and (baseHeight + 4 + optionsHeight) or baseHeight
                 tween(row, 0.18, { Size = UDim2.new(1, 0, 0, targetRowHeight) }, Enum.EasingStyle.Quart)
                 tween(optionsFrame, 0.18, {
-                    Size = UDim2.new(0.5, 0, 0, expanded and optionsHeight or 0),
-                    BackgroundTransparency = expanded and 0 or 1
+                    Size = UDim2.new(selectWidthScale, 0, 0, expanded and optionsHeight or 0),
+                    BackgroundTransparency = expanded and 0.04 or 1
                 }, Enum.EasingStyle.Quart)
                 tween(optionsStroke, 0.18, { Transparency = expanded and 0 or 1 }, Enum.EasingStyle.Quart)
                 tween(arrow, 0.18, { Rotation = expanded and 180 or 0 }, Enum.EasingStyle.Quart)
-                tween(arrow, 0.18, { TextColor3 = expanded and style.TextColor or style.SubTextColor }, Enum.EasingStyle.Quart)
+                tween(arrow, 0.18, { ImageColor3 = expanded and style.TextColor or style.SubTextColor }, Enum.EasingStyle.Quart)
             end
 
             local function setOption(option, state, silent)
@@ -1515,7 +1534,7 @@ function Library:AddTab(tabSettings)
 
                 if not expanded then
                     row.Size = UDim2.new(1, 0, 0, baseHeight)
-                    optionsFrame.Size = UDim2.new(0.5, 0, 0, 0)
+                    optionsFrame.Size = UDim2.new(selectWidthScale, 0, 0, 0)
                 end
             end
 
