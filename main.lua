@@ -1,4 +1,4 @@
--- ver 1.06 Test
+-- ver 1.061
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -18,7 +18,7 @@ Library.Defaults = {
     AccentColor = Color3.fromRGB(0, 122, 255),
     SidebarColor = Color3.fromRGB(20, 20, 22),
     BackgroundColor = Color3.fromRGB(25, 25, 27),
-    WindowTransparency = 0.15,
+    WindowTransparency = 0,
     SurfaceColor = Color3.fromRGB(32, 32, 35),
     ItemColor = Color3.fromRGB(45, 45, 50),
     TextColor = Color3.fromRGB(245, 245, 245),
@@ -37,7 +37,7 @@ Library.Defaults = {
     MinHeight = 300,
     MaxWidth = 1200,
     MaxHeight = 900,
-    BlurEnabled = true,
+    BlurEnabled = false,
     BlurMode = "Global",
     BlurSize = 18,
     BlurTweenSpeed = 0.2,
