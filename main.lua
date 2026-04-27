@@ -1,4 +1,4 @@
--- ver 1.03 TEST
+- -- ver 1.03 TEST
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -17,6 +17,7 @@ Library.Defaults = {
     AccentColor = Color3.fromRGB(0, 122, 255),
     SidebarColor = Color3.fromRGB(20, 20, 22),
     BackgroundColor = Color3.fromRGB(25, 25, 27),
+    WindowTransparency = 0.15,
     SurfaceColor = Color3.fromRGB(32, 32, 35),
     ItemColor = Color3.fromRGB(45, 45, 50),
     TextColor = Color3.fromRGB(245, 245, 245),
@@ -291,6 +292,7 @@ function Library.new(config)
     holder.Position = UDim2.fromScale(0.5, 0.5)
     holder.Size = UDim2.fromOffset(settings.Width, settings.Height)
     holder.BackgroundColor3 = settings.BackgroundColor
+    holder.BackgroundTransparency = settings.WindowTransparency
     holder.ClipsDescendants = true
     holder.Parent = root
     makeCorner(holder, settings.CornerRadius)
@@ -424,13 +426,15 @@ function Library.new(config)
         self._isMinimized = true
         self._preMinSize = holder.Size
         if resizeHandle then tween(resizeHandle, 0.2, {BackgroundTransparency = 1}) resizeHandle.Visible = false end
-        tween(holder, 0.4, {Size = UDim2.fromOffset(self._preMinSize.X.Offset, 70)}, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+        tween(sidebarLine, 0.2, {BackgroundTransparency = 1})
+        tween(holder, 0.4, {Size = UDim2.fromOffset(160, 70)}, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     end)
 
     maxBtn.MouseButton1Click:Connect(function()
         if not self._isMinimized then return end
         self._isMinimized = false
-        if resizeHandle then resizeHandle.Visible = true tween(resizeHandle, 0.2, {BackgroundTransparency = 1}) end
+        if resizeHandle then resizeHandle.Visible = true tween(resizeHandle, 0.2, {BackgroundTransparency = 0}) end
+        tween(sidebarLine, 0.2, {BackgroundTransparency = 0})
         tween(holder, 0.4, {Size = self._preMinSize}, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     end)
 
@@ -512,7 +516,7 @@ function Library.new(config)
 
     holder.Size = UDim2.fromOffset(settings.Width * 0.95, settings.Height * 0.95)
     holder.BackgroundTransparency = 1
-    tween(holder, settings.AnimationSpeed, { Size = UDim2.fromOffset(settings.Width, settings.Height), BackgroundTransparency = 0 }, Enum.EasingStyle.Back)
+    tween(holder, settings.AnimationSpeed, { Size = UDim2.fromOffset(settings.Width, settings.Height), BackgroundTransparency = settings.WindowTransparency }, Enum.EasingStyle.Back)
     holderScale.Scale = 0.95
     tween(holderScale, settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back)
 
@@ -532,7 +536,7 @@ function Library:SetVisible(state)
         self.HolderScale.Scale = 0.95
         self.Holder.BackgroundTransparency = 1
         tweenDescendants(self.Holder, 0, "hide")
-        tween(self.Holder, self.Settings.AnimationSpeed, { Size = self._isMinimized and UDim2.fromOffset(self._preMinSize.X.Offset, 70) or UDim2.fromOffset(self.Settings.Width, self.Settings.Height), BackgroundTransparency = 0 }, Enum.EasingStyle.Back)
+        tween(self.Holder, self.Settings.AnimationSpeed, { Size = self._isMinimized and UDim2.fromOffset(160, 70) or UDim2.fromOffset(self.Settings.Width, self.Settings.Height), BackgroundTransparency = self.Settings.WindowTransparency }, Enum.EasingStyle.Back)
         tween(self.HolderScale, self.Settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back)
         tweenDescendants(self.Holder, self.Settings.AnimationSpeed, "show")
     else
@@ -986,7 +990,7 @@ function Library:AddTab(tabSettings)
 
             input.MouseButton1Down:Connect(function()
                 dragging = true
-                tween(knob, 0.15, {Size = UDim2.fromOffset(18, 18)}, Enum.EasingStyle.Back)
+                tween(knob, 0.15, {Size = UDim2.fromOffset(16, 16)}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
             end)
             
             table.insert(menuRef.Connections, UserInputService.InputChanged:Connect(function(i)
@@ -1000,7 +1004,7 @@ function Library:AddTab(tabSettings)
                 if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
                     if dragging then
                         dragging = false
-                        tween(knob, 0.15, {Size = UDim2.fromOffset(14, 14)}, Enum.EasingStyle.Back)
+                        tween(knob, 0.15, {Size = UDim2.fromOffset(14, 14)}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
                     end
                 end
             end))
