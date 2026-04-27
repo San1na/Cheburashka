@@ -1,9 +1,8 @@
--- ver 1.03 TEST
+-- ver 1.045 Test
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local Lighting = game:GetService("Lighting")
 
 local Library = {}
 Library.__index = Library
@@ -291,7 +290,7 @@ function Library.new(config)
     self._destroyed = false
     self._unloadCallbacks = {}
     self._modules = {}
-    self._blurEffect = nil
+    self._menuBlurFrame = nil
 
     local root = getParent(settings.Parent)
 
@@ -545,41 +544,46 @@ function Library:_setupBlur()
         return
     end
 
-    local blurName = "LibraryBlur_" .. tostring(math.floor(os.clock() * 1000))
-    local blur = Instance.new("BlurEffect")
-    blur.Name = blurName
-    blur.Size = 0
-    blur.Enabled = false
-    blur.Parent = Lighting
-    self._blurEffect = blur
+    local blurFrame = Instance.new("Frame")
+    blurFrame.Name = "MenuBlur"
+    blurFrame.Size = UDim2.fromScale(1, 1)
+    blurFrame.Position = UDim2.fromOffset(0, 0)
+    blurFrame.BackgroundColor3 = self.Settings.SurfaceColor
+    blurFrame.BackgroundTransparency = 1
+    blurFrame.BorderSizePixel = 0
+    blurFrame.ZIndex = 0
+    blurFrame.Parent = self.Holder
+    makeCorner(blurFrame, self.Settings.CornerRadius)
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, self.Settings.SurfaceColor),
+        ColorSequenceKeypoint.new(1, self.Settings.BackgroundColor)
+    })
+    gradient.Rotation = 90
+    gradient.Parent = blurFrame
+
+    self._menuBlurFrame = blurFrame
 end
 
 function Library:_setBlurVisible(isVisible, instant)
-    if not self._blurEffect then
+    if not self._menuBlurFrame then
         return
     end
 
-    local target = isVisible and (self.Settings.BlurSize or 18) or 0
+    local intensity = math.clamp((self.Settings.BlurSize or 18) / 100, 0, 0.35)
+    local target = isVisible and math.clamp(0.82 - intensity, 0.45, 0.9) or 1
     local speed = instant and 0 or (self.Settings.BlurTweenSpeed or 0.2)
 
-    self._blurEffect.Enabled = true
     if speed <= 0 then
-        self._blurEffect.Size = target
+        self._menuBlurFrame.BackgroundTransparency = target
     else
         local tw = TweenService:Create(
-            self._blurEffect,
+            self._menuBlurFrame,
             TweenInfo.new(speed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            { Size = target }
+            { BackgroundTransparency = target }
         )
         tw:Play()
-    end
-
-    if not isVisible then
-        task.delay(speed + 0.01, function()
-            if self._blurEffect and self._blurEffect.Parent then
-                self._blurEffect.Enabled = false
-            end
-        end)
     end
 end
 
@@ -2236,12 +2240,10 @@ function Library:Destroy()
     self._destroyed = true
 
     self:_setBlurVisible(false, true)
-    if self._blurEffect and self._blurEffect.Parent then
-        self._blurEffect.Size = 0
-        self._blurEffect.Enabled = false
-        self._blurEffect:Destroy()
+    if self._menuBlurFrame and self._menuBlurFrame.Parent then
+        self._menuBlurFrame:Destroy()
     end
-    self._blurEffect = nil
+    self._menuBlurFrame = nil
 
     for _, connection in ipairs(self.Connections) do
         if connection and connection.Connected then connection:Disconnect() end
