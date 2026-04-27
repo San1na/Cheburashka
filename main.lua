@@ -1,4 +1,4 @@
--- ver 1.05 Test
+-- ver 1.055 Test
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -38,7 +38,7 @@ Library.Defaults = {
     MaxWidth = 1200,
     MaxHeight = 900,
     BlurEnabled = true,
-    BlurMode = "Global",
+    BlurMode = "Local",
     BlurSize = 18,
     BlurTweenSpeed = 0.2,
     BlurBackdropTransparency = 0.75,
@@ -549,121 +549,47 @@ function Library:_setupBlur()
         return
     end
 
-    if self.Settings.BlurMode == "Local" then
-        local blurFrame = Instance.new("Frame")
-        blurFrame.Name = "MenuBlur"
-        blurFrame.Size = UDim2.fromScale(1, 1)
-        blurFrame.Position = UDim2.fromOffset(0, 0)
-        blurFrame.BackgroundColor3 = self.Settings.SurfaceColor
-        blurFrame.BackgroundTransparency = 1
-        blurFrame.BorderSizePixel = 0
-        blurFrame.ZIndex = 0
-        blurFrame.Parent = self.Holder
-        makeCorner(blurFrame, self.Settings.CornerRadius)
+    local blurFrame = Instance.new("Frame")
+    blurFrame.Name = "MenuBlur"
+    blurFrame.Size = UDim2.fromScale(1, 1)
+    blurFrame.Position = UDim2.fromOffset(0, 0)
+    blurFrame.BackgroundColor3 = self.Settings.SurfaceColor
+    blurFrame.BackgroundTransparency = 1
+    blurFrame.BorderSizePixel = 0
+    blurFrame.ZIndex = 0
+    blurFrame.Parent = self.Holder
+    makeCorner(blurFrame, self.Settings.CornerRadius)
 
-        local gradient = Instance.new("UIGradient")
-        gradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, self.Settings.SurfaceColor),
-            ColorSequenceKeypoint.new(1, self.Settings.BackgroundColor)
-        })
-        gradient.Rotation = 90
-        gradient.Parent = blurFrame
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, self.Settings.SurfaceColor),
+        ColorSequenceKeypoint.new(1, self.Settings.BackgroundColor)
+    })
+    gradient.Rotation = 90
+    gradient.Parent = blurFrame
 
-        self._menuBlurFrame = blurFrame
-        return
-    end
-
-    local blurName = "LibraryBlur_" .. tostring(math.floor(os.clock() * 1000))
-    local blur = Instance.new("BlurEffect")
-    blur.Name = blurName
-    blur.Size = 0
-    blur.Enabled = false
-    blur.Parent = Lighting
-    self._blurEffect = blur
-
-    local backdrop = Instance.new("Frame")
-    backdrop.Name = "BlurBackdrop"
-    backdrop.Size = UDim2.fromScale(1, 1)
-    backdrop.Position = UDim2.fromOffset(0, 0)
-    backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    backdrop.BackgroundTransparency = 1
-    backdrop.BorderSizePixel = 0
-    backdrop.ZIndex = 0
-    backdrop.Visible = false
-    backdrop.Parent = self.Root
-    self._blurBackdrop = backdrop
+    self._menuBlurFrame = blurFrame
 end
 
 function Library:_setBlurVisible(isVisible, instant)
     local speed = instant and 0 or (self.Settings.BlurTweenSpeed or 0.2)
 
-    if self.Settings.BlurMode == "Local" then
-        if not self._menuBlurFrame then
-            return
-        end
-        local intensity = math.clamp((self.Settings.BlurSize or 18) / 100, 0, 0.35)
-        local target = isVisible and math.clamp(0.82 - intensity, 0.45, 0.9) or 1
-
-        if speed <= 0 then
-            self._menuBlurFrame.BackgroundTransparency = target
-        else
-            local tw = TweenService:Create(
-                self._menuBlurFrame,
-                TweenInfo.new(speed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                { BackgroundTransparency = target }
-            )
-            tw:Play()
-        end
+    if not self._menuBlurFrame then
         return
     end
 
-    if self._blurBackdrop then
-        if isVisible then
-            self._blurBackdrop.Visible = true
-        end
-        local targetBackdrop = isVisible and (self.Settings.BlurBackdropTransparency or 0.75) or 1
-        if speed <= 0 then
-            self._blurBackdrop.BackgroundTransparency = targetBackdrop
-        else
-            local twBackdrop = TweenService:Create(
-                self._blurBackdrop,
-                TweenInfo.new(speed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                { BackgroundTransparency = targetBackdrop }
-            )
-            twBackdrop:Play()
-        end
-        if not isVisible then
-            task.delay(speed + 0.01, function()
-                if self._blurBackdrop and self._blurBackdrop.Parent then
-                    self._blurBackdrop.Visible = false
-                end
-            end)
-        end
-    end
+    local intensity = math.clamp((self.Settings.BlurSize or 18) / 100, 0, 0.6)
+    local target = isVisible and math.clamp(0.62 - intensity, 0.18, 0.62) or 1
 
-    if not self._blurEffect then
-        return
-    end
-
-    local targetBlur = isVisible and (self.Settings.BlurSize or 18) or 0
-    self._blurEffect.Enabled = true
     if speed <= 0 then
-        self._blurEffect.Size = targetBlur
+        self._menuBlurFrame.BackgroundTransparency = target
     else
         local tw = TweenService:Create(
-            self._blurEffect,
+            self._menuBlurFrame,
             TweenInfo.new(speed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            { Size = targetBlur }
+            { BackgroundTransparency = target }
         )
         tw:Play()
-    end
-
-    if not isVisible then
-        task.delay(speed + 0.01, function()
-            if self._blurEffect and self._blurEffect.Parent then
-                self._blurEffect.Enabled = false
-            end
-        end)
     end
 end
 
