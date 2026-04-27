@@ -1,8 +1,9 @@
--- ver 1.045 Test
+-- ver 1.05 Test
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
 
 local Library = {}
 Library.__index = Library
@@ -37,8 +38,10 @@ Library.Defaults = {
     MaxWidth = 1200,
     MaxHeight = 900,
     BlurEnabled = true,
+    BlurMode = "Global",
     BlurSize = 18,
     BlurTweenSpeed = 0.2,
+    BlurBackdropTransparency = 0.75,
     RunUnloadOnClose = true,
 }
 
@@ -290,6 +293,8 @@ function Library.new(config)
     self._destroyed = false
     self._unloadCallbacks = {}
     self._modules = {}
+    self._blurEffect = nil
+    self._blurBackdrop = nil
     self._menuBlurFrame = nil
 
     local root = getParent(settings.Parent)
@@ -544,46 +549,121 @@ function Library:_setupBlur()
         return
     end
 
-    local blurFrame = Instance.new("Frame")
-    blurFrame.Name = "MenuBlur"
-    blurFrame.Size = UDim2.fromScale(1, 1)
-    blurFrame.Position = UDim2.fromOffset(0, 0)
-    blurFrame.BackgroundColor3 = self.Settings.SurfaceColor
-    blurFrame.BackgroundTransparency = 1
-    blurFrame.BorderSizePixel = 0
-    blurFrame.ZIndex = 0
-    blurFrame.Parent = self.Holder
-    makeCorner(blurFrame, self.Settings.CornerRadius)
+    if self.Settings.BlurMode == "Local" then
+        local blurFrame = Instance.new("Frame")
+        blurFrame.Name = "MenuBlur"
+        blurFrame.Size = UDim2.fromScale(1, 1)
+        blurFrame.Position = UDim2.fromOffset(0, 0)
+        blurFrame.BackgroundColor3 = self.Settings.SurfaceColor
+        blurFrame.BackgroundTransparency = 1
+        blurFrame.BorderSizePixel = 0
+        blurFrame.ZIndex = 0
+        blurFrame.Parent = self.Holder
+        makeCorner(blurFrame, self.Settings.CornerRadius)
 
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, self.Settings.SurfaceColor),
-        ColorSequenceKeypoint.new(1, self.Settings.BackgroundColor)
-    })
-    gradient.Rotation = 90
-    gradient.Parent = blurFrame
+        local gradient = Instance.new("UIGradient")
+        gradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, self.Settings.SurfaceColor),
+            ColorSequenceKeypoint.new(1, self.Settings.BackgroundColor)
+        })
+        gradient.Rotation = 90
+        gradient.Parent = blurFrame
 
-    self._menuBlurFrame = blurFrame
-end
-
-function Library:_setBlurVisible(isVisible, instant)
-    if not self._menuBlurFrame then
+        self._menuBlurFrame = blurFrame
         return
     end
 
-    local intensity = math.clamp((self.Settings.BlurSize or 18) / 100, 0, 0.35)
-    local target = isVisible and math.clamp(0.82 - intensity, 0.45, 0.9) or 1
+    local blurName = "LibraryBlur_" .. tostring(math.floor(os.clock() * 1000))
+    local blur = Instance.new("BlurEffect")
+    blur.Name = blurName
+    blur.Size = 0
+    blur.Enabled = false
+    blur.Parent = Lighting
+    self._blurEffect = blur
+
+    local backdrop = Instance.new("Frame")
+    backdrop.Name = "BlurBackdrop"
+    backdrop.Size = UDim2.fromScale(1, 1)
+    backdrop.Position = UDim2.fromOffset(0, 0)
+    backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    backdrop.BackgroundTransparency = 1
+    backdrop.BorderSizePixel = 0
+    backdrop.ZIndex = 0
+    backdrop.Visible = false
+    backdrop.Parent = self.Root
+    self._blurBackdrop = backdrop
+end
+
+function Library:_setBlurVisible(isVisible, instant)
     local speed = instant and 0 or (self.Settings.BlurTweenSpeed or 0.2)
 
+    if self.Settings.BlurMode == "Local" then
+        if not self._menuBlurFrame then
+            return
+        end
+        local intensity = math.clamp((self.Settings.BlurSize or 18) / 100, 0, 0.35)
+        local target = isVisible and math.clamp(0.82 - intensity, 0.45, 0.9) or 1
+
+        if speed <= 0 then
+            self._menuBlurFrame.BackgroundTransparency = target
+        else
+            local tw = TweenService:Create(
+                self._menuBlurFrame,
+                TweenInfo.new(speed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                { BackgroundTransparency = target }
+            )
+            tw:Play()
+        end
+        return
+    end
+
+    if self._blurBackdrop then
+        if isVisible then
+            self._blurBackdrop.Visible = true
+        end
+        local targetBackdrop = isVisible and (self.Settings.BlurBackdropTransparency or 0.75) or 1
+        if speed <= 0 then
+            self._blurBackdrop.BackgroundTransparency = targetBackdrop
+        else
+            local twBackdrop = TweenService:Create(
+                self._blurBackdrop,
+                TweenInfo.new(speed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                { BackgroundTransparency = targetBackdrop }
+            )
+            twBackdrop:Play()
+        end
+        if not isVisible then
+            task.delay(speed + 0.01, function()
+                if self._blurBackdrop and self._blurBackdrop.Parent then
+                    self._blurBackdrop.Visible = false
+                end
+            end)
+        end
+    end
+
+    if not self._blurEffect then
+        return
+    end
+
+    local targetBlur = isVisible and (self.Settings.BlurSize or 18) or 0
+    self._blurEffect.Enabled = true
     if speed <= 0 then
-        self._menuBlurFrame.BackgroundTransparency = target
+        self._blurEffect.Size = targetBlur
     else
         local tw = TweenService:Create(
-            self._menuBlurFrame,
+            self._blurEffect,
             TweenInfo.new(speed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            { BackgroundTransparency = target }
+            { Size = targetBlur }
         )
         tw:Play()
+    end
+
+    if not isVisible then
+        task.delay(speed + 0.01, function()
+            if self._blurEffect and self._blurEffect.Parent then
+                self._blurEffect.Enabled = false
+            end
+        end)
     end
 end
 
@@ -2240,6 +2320,16 @@ function Library:Destroy()
     self._destroyed = true
 
     self:_setBlurVisible(false, true)
+    if self._blurBackdrop and self._blurBackdrop.Parent then
+        self._blurBackdrop:Destroy()
+    end
+    self._blurBackdrop = nil
+    if self._blurEffect and self._blurEffect.Parent then
+        self._blurEffect.Size = 0
+        self._blurEffect.Enabled = false
+        self._blurEffect:Destroy()
+    end
+    self._blurEffect = nil
     if self._menuBlurFrame and self._menuBlurFrame.Parent then
         self._menuBlurFrame:Destroy()
     end
