@@ -1,4 +1,4 @@
--- ver 1.02 TEST
+-- ver 1.03 TEST
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -26,7 +26,7 @@ Library.Defaults = {
     SmallTextSize = 12,
     NormalTextSize = 13,
     TitleTextSize = 18,
-    AnimationSpeed = 0.25,
+    AnimationSpeed = 0.35,
     ItemHeight = 36,
     SafeAreaPadding = 14,
     Resizable = true,
@@ -81,9 +81,7 @@ local function makeButton(parent)
 end
 
 local function makeLabel(parent, text, size, color, font, align)
-    local l = Instance.new("TextLabel")
-    l.BackgroundTransparency = 1
-    l.Text = text or ""
+    local l = Instance.new("TextLabel") l.BackgroundTransparency = 1 l.Text = text or ""
     l.TextSize = size
     l.TextColor3 = color
     l.Font = font
@@ -189,9 +187,9 @@ local function pressAnimation(button)
     local scale = Instance.new("UIScale")
     scale.Scale = 1
     scale.Parent = button
-    button.MouseButton1Down:Connect(function() tween(scale, 0.08, { Scale = 0.97 }) end)
-    button.MouseButton1Up:Connect(function() tween(scale, 0.12, { Scale = 1 }, Enum.EasingStyle.Back) end)
-    button.MouseLeave:Connect(function() tween(scale, 0.12, { Scale = 1 }, Enum.EasingStyle.Back) end)
+    button.MouseButton1Down:Connect(function() tween(scale, 0.1, { Scale = 0.95 }, Enum.EasingStyle.Quint) end)
+    button.MouseButton1Up:Connect(function() tween(scale, 0.25, { Scale = 1 }, Enum.EasingStyle.Quint) end)
+    button.MouseLeave:Connect(function() tween(scale, 0.25, { Scale = 1 }, Enum.EasingStyle.Quint) end)
 end
 
 local function getParent(customParent)
@@ -311,14 +309,14 @@ function Library.new(config)
         resizeHandle.Position = UDim2.new(1, -4, 1, -4)
         resizeHandle.BackgroundColor3 = settings.ItemColor
         resizeHandle.BackgroundTransparency = 1
-        resizeHandle.ZIndex = 100
+        resizeHandle.ZIndex = 15
         resizeHandle.Parent = holder
         makeCorner(resizeHandle, 4)
         makeStroke(resizeHandle, settings.BorderColor, 0.6)
 
         local resizeButton = makeButton(resizeHandle)
         resizeButton.Size = UDim2.fromScale(1, 1)
-        resizeButton.ZIndex = 102
+        resizeButton.ZIndex = 16
 
         local resizing = false
         local resizeStartPos
@@ -326,6 +324,7 @@ function Library.new(config)
         local resizeStartHolderPos
 
         table.insert(self.Connections, resizeButton.InputBegan:Connect(function(input)
+            if self._isMinimized then return end
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 resizing = true
                 resizeStartPos = input.Position
@@ -336,20 +335,22 @@ function Library.new(config)
 
         table.insert(self.Connections, UserInputService.InputChanged:Connect(function(input)
             if not resizing then return end
+            if self._isMinimized then return end
             if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
 
             local delta = input.Position - resizeStartPos
-            local newWidth = math.clamp(resizeStartSize.X + delta.X, settings.MinWidth, settings.MaxWidth)
-            local newHeight = math.clamp(resizeStartSize.Y + delta.Y, settings.MinHeight, settings.MaxHeight)
-            local widthDelta = newWidth - resizeStartSize.X
-            local heightDelta = newHeight - resizeStartSize.Y
+            local newWidth = math.round(math.clamp(resizeStartSize.X + delta.X, settings.MinWidth, settings.MaxWidth))
+            local newHeight = math.round(math.clamp(resizeStartSize.Y + delta.Y, settings.MinHeight, settings.MaxHeight))
+            
+            local actualDeltaX = newWidth - resizeStartSize.X
+            local actualDeltaY = newHeight - resizeStartSize.Y
 
             holder.Size = UDim2.fromOffset(newWidth, newHeight)
             holder.Position = UDim2.new(
                 resizeStartHolderPos.X.Scale,
-                resizeStartHolderPos.X.Offset + (widthDelta * 0.5),
+                math.round(resizeStartHolderPos.X.Offset + (actualDeltaX * 0.5)),
                 resizeStartHolderPos.Y.Scale,
-                resizeStartHolderPos.Y.Offset + (heightDelta * 0.5)
+                math.round(resizeStartHolderPos.Y.Offset + (actualDeltaY * 0.5))
             )
             self.Settings.Width = newWidth
             self.Settings.Height = newHeight
@@ -382,13 +383,64 @@ function Library.new(config)
     header.Size = UDim2.new(1, 0, 0, 70)
     header.Parent = sidebar
 
+    local windowControls = Instance.new("Frame")
+    windowControls.Name = "WindowControls"
+    windowControls.BackgroundTransparency = 1
+    windowControls.Size = UDim2.fromOffset(60, 12)
+    windowControls.Position = UDim2.fromOffset(16, 12)
+    windowControls.Parent = header
+
+    local btnLayout = Instance.new("UIListLayout")
+    btnLayout.FillDirection = Enum.FillDirection.Horizontal
+    btnLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    btnLayout.Padding = UDim.new(0, 8)
+    btnLayout.Parent = windowControls
+
+    local function makeControlBtn(color, order)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.fromOffset(12, 12)
+        btn.BackgroundColor3 = color
+        btn.Text = ""
+        btn.AutoButtonColor = false
+        btn.LayoutOrder = order
+        btn.Parent = windowControls
+        makeCorner(btn, 6)
+        return btn
+    end
+
+    local closeBtn = makeControlBtn(Color3.fromRGB(255, 95, 86), 1)
+    local minBtn = makeControlBtn(Color3.fromRGB(255, 189, 46), 2)
+    local maxBtn = makeControlBtn(Color3.fromRGB(39, 201, 63), 3)
+
+    self._isMinimized = false
+    self._preMinSize = UDim2.fromOffset(settings.Width, settings.Height)
+
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Destroy()
+    end)
+
+    minBtn.MouseButton1Click:Connect(function()
+        if self._isMinimized then return end
+        self._isMinimized = true
+        self._preMinSize = holder.Size
+        if resizeHandle then tween(resizeHandle, 0.2, {BackgroundTransparency = 1}) resizeHandle.Visible = false end
+        tween(holder, 0.4, {Size = UDim2.fromOffset(self._preMinSize.X.Offset, 70)}, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    end)
+
+    maxBtn.MouseButton1Click:Connect(function()
+        if not self._isMinimized then return end
+        self._isMinimized = false
+        if resizeHandle then resizeHandle.Visible = true tween(resizeHandle, 0.2, {BackgroundTransparency = 1}) end
+        tween(holder, 0.4, {Size = self._preMinSize}, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    end)
+
     local title = makeLabel(header, settings.Name, settings.TitleTextSize, settings.TextColor, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
     title.Size = UDim2.new(1, -24, 0, 20)
-    title.Position = UDim2.fromOffset(16, 16)
+    title.Position = UDim2.fromOffset(16, 32)
 
     local subtitle = makeLabel(header, settings.Subtitle, settings.SmallTextSize, settings.SubTextColor, settings.Font, Enum.TextXAlignment.Left)
     subtitle.Size = UDim2.new(1, -24, 0, 14)
-    subtitle.Position = UDim2.fromOffset(16, 38)
+    subtitle.Position = UDim2.fromOffset(16, 52)
 
     local tabsContainer = Instance.new("ScrollingFrame")
     tabsContainer.Name = "TabsContainer"
@@ -480,7 +532,7 @@ function Library:SetVisible(state)
         self.HolderScale.Scale = 0.95
         self.Holder.BackgroundTransparency = 1
         tweenDescendants(self.Holder, 0, "hide")
-        tween(self.Holder, self.Settings.AnimationSpeed, { Size = UDim2.fromOffset(self.Settings.Width, self.Settings.Height), BackgroundTransparency = 0 }, Enum.EasingStyle.Back)
+        tween(self.Holder, self.Settings.AnimationSpeed, { Size = self._isMinimized and UDim2.fromOffset(self._preMinSize.X.Offset, 70) or UDim2.fromOffset(self.Settings.Width, self.Settings.Height), BackgroundTransparency = 0 }, Enum.EasingStyle.Back)
         tween(self.HolderScale, self.Settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back)
         tweenDescendants(self.Holder, self.Settings.AnimationSpeed, "show")
     else
@@ -880,22 +932,31 @@ function Library:AddTab(tabSettings)
             valueLabel.Position = UDim2.new(1, -56, 0, 3)
 
             local bar = Instance.new("Frame")
-            bar.Size = UDim2.new(1, 0, 0, 6)
-            bar.Position = UDim2.fromOffset(0, 28)
+            bar.Size = UDim2.new(1, 0, 0, 4)
+            bar.Position = UDim2.fromOffset(0, 29)
             bar.BackgroundColor3 = style.ItemColor
             bar.Parent = row
-            makeCorner(bar, 999)
-            makeStroke(bar, style.BorderColor, 0)
+            makeCorner(bar, 2)
 
             local fill = Instance.new("Frame")
             fill.BackgroundColor3 = style.AccentColor
             fill.Size = UDim2.new(0, 0, 1, 0)
             fill.Parent = bar
-            makeCorner(fill, 999)
+            makeCorner(fill, 2)
+
+            local knob = Instance.new("Frame")
+            knob.Size = UDim2.fromOffset(14, 14)
+            knob.AnchorPoint = Vector2.new(0.5, 0.5)
+            knob.Position = UDim2.new(1, 0, 0.5, 0)
+            knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            knob.Parent = fill
+            makeCorner(knob, 7)
+            makeStroke(knob, style.BorderColor, 0)
 
             local function render(v)
                 local range = math.max(max - min, 1)
-                tween(fill, 0.12, { Size = UDim2.new((v - min) / range, 0, 1, 0) })
+                local ratio = math.max((v - min) / range, 0.001)
+                tween(fill, 0.15, { Size = UDim2.new(ratio, 0, 1, 0) }, Enum.EasingStyle.Quart)
                 valueLabel.Text = tostring(v)
             end
 
@@ -920,19 +981,27 @@ function Library:AddTab(tabSettings)
             })
 
             local input = makeButton(bar)
-            input.Size = UDim2.new(1, 0, 1, 10)
-            input.Position = UDim2.fromOffset(0, -5)
+            input.Size = UDim2.new(1, 0, 1, 16)
+            input.Position = UDim2.fromOffset(0, -8)
 
-            input.MouseButton1Down:Connect(function() dragging = true end)
+            input.MouseButton1Down:Connect(function()
+                dragging = true
+                tween(knob, 0.15, {Size = UDim2.fromOffset(18, 18)}, Enum.EasingStyle.Back)
+            end)
+            
             table.insert(menuRef.Connections, UserInputService.InputChanged:Connect(function(i)
                 if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
                     local alpha = math.clamp((i.Position.X - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
                     setValue(min + (max - min) * alpha, false)
                 end
             end))
+            
             table.insert(menuRef.Connections, UserInputService.InputEnded:Connect(function(i)
                 if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-                    dragging = false
+                    if dragging then
+                        dragging = false
+                        tween(knob, 0.15, {Size = UDim2.fromOffset(14, 14)}, Enum.EasingStyle.Back)
+                    end
                 end
             end))
 
@@ -1580,7 +1649,7 @@ function Library:AddTab(tabSettings)
             popup.Size = UDim2.fromOffset(220, 166)
             popup.BackgroundColor3 = style.SurfaceColor
             popup.BackgroundTransparency = 1
-            popup.ZIndex = 20
+            popup.ZIndex = 200
             popup.Parent = menuRef.Root
             makeCorner(popup, 6)
             local popupStroke = makeStroke(popup, style.BorderColor, 0)
@@ -1593,14 +1662,14 @@ function Library:AddTab(tabSettings)
             sv.Size = UDim2.new(1, -54, 1, -16)
             sv.Position = UDim2.fromOffset(8, 8)
             sv.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
-            sv.ZIndex = 21
+            sv.ZIndex = 201
             sv.Parent = popup
             makeCorner(sv, 4)
 
             local whiteLayer = Instance.new("Frame")
             whiteLayer.Size = UDim2.fromScale(1, 1)
             whiteLayer.BackgroundColor3 = Color3.new(1, 1, 1)
-            whiteLayer.ZIndex = 22
+            whiteLayer.ZIndex = 202
             whiteLayer.Parent = sv
             makeCorner(whiteLayer, 4)
 
@@ -1613,7 +1682,7 @@ function Library:AddTab(tabSettings)
             local blackLayer = Instance.new("Frame")
             blackLayer.Size = UDim2.fromScale(1, 1)
             blackLayer.BackgroundColor3 = Color3.new(0, 0, 0)
-            blackLayer.ZIndex = 23
+            blackLayer.ZIndex = 203
             blackLayer.Parent = sv
             makeCorner(blackLayer, 4)
 
@@ -1627,7 +1696,7 @@ function Library:AddTab(tabSettings)
             svCursor.Size = UDim2.fromOffset(12, 12)
             svCursor.AnchorPoint = Vector2.new(0.5, 0.5)
             svCursor.BackgroundColor3 = Color3.new(1, 1, 1)
-            svCursor.ZIndex = 24
+            svCursor.ZIndex = 204
             svCursor.Parent = sv
             makeCorner(svCursor, 999)
             makeStroke(svCursor, Color3.fromRGB(15, 15, 15), 0.35)
@@ -1635,7 +1704,7 @@ function Library:AddTab(tabSettings)
             local hueBar = Instance.new("Frame")
             hueBar.Size = UDim2.new(0, 18, 1, -16)
             hueBar.Position = UDim2.new(1, -30, 0, 8)
-            hueBar.ZIndex = 21
+            hueBar.ZIndex = 201
             hueBar.Parent = popup
             makeCorner(hueBar, 4)
 
@@ -1656,18 +1725,18 @@ function Library:AddTab(tabSettings)
             hueCursor.Size = UDim2.new(1, 4, 0, 4)
             hueCursor.AnchorPoint = Vector2.new(0.5, 0.5)
             hueCursor.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            hueCursor.ZIndex = 24
+            hueCursor.ZIndex = 204
             hueCursor.Parent = hueBar
             makeCorner(hueCursor, 999)
             makeStroke(hueCursor, Color3.fromRGB(35, 35, 35), 0.35)
 
             local svHit = makeButton(sv)
             svHit.Size = UDim2.fromScale(1, 1)
-            svHit.ZIndex = 25
+            svHit.ZIndex = 205
 
             local hueHit = makeButton(hueBar)
             hueHit.Size = UDim2.fromScale(1, 1)
-            hueHit.ZIndex = 25
+            hueHit.ZIndex = 205
 
             local controlRef
             local function updateVisuals(silent)
