@@ -1,4 +1,3 @@
--- 42
 local HttpService = game:GetService("HttpService")
 
 local ConfigSys = {}
@@ -107,20 +106,27 @@ function ConfigSys:SetFolder(folderName)
 end
 
 function ConfigSys:GetFolder()
-    return self.FolderName
+    return self.FolderName or "iOSMenuConfigs"
 end
 
 function ConfigSys:_buildPath(configName)
     local safe = sanitizeName(configName)
-    return string.format("%s/%s%s", self.FolderName, safe, self.FileExtension), safe
+    local folder = self.FolderName or "iOSMenuConfigs"
+    local ext = self.FileExtension or ".json"
+    return string.format("%s/%s%s", folder, safe, ext), safe
 end
 
 function ConfigSys:_manifestPath()
-    return string.format("%s/_manifest%s", self.FolderName, self.FileExtension)
+    local folder = self.FolderName or "iOSMenuConfigs"
+    local ext = self.FileExtension or ".json"
+    return string.format("%s/_manifest%s", folder, ext)
 end
 
 function ConfigSys:_metaPath()
-    return string.format("%s/%s%s", self.FolderName, self.MetaFileName, self.FileExtension)
+    local folder = self.FolderName or "iOSMenuConfigs"
+    local meta = self.MetaFileName or "_meta"
+    local ext = self.FileExtension or ".json"
+    return string.format("%s/%s%s", folder, meta, ext)
 end
 
 function ConfigSys:_readJson(path)
@@ -135,7 +141,8 @@ function ConfigSys:_readJson(path)
 end
 
 function ConfigSys:_writeJson(path, data)
-    local ok, err = ensureFolder(self.FolderName)
+    local folder = self.FolderName or "iOSMenuConfigs"
+    local ok, err = ensureFolder(folder)
     if not ok then return false, err end
 
     local success, encoded = pcall(function()
@@ -195,7 +202,8 @@ function ConfigSys:GetMeta(key, defaultValue)
 end
 
 function ConfigSys:SaveConfig(configName, data)
-    local ok, err = ensureFolder(self.FolderName)
+    local folder = self.FolderName or "iOSMenuConfigs"
+    local ok, err = ensureFolder(folder)
     if not ok then return false, err end
 
     local path, safeName = self:_buildPath(configName)
@@ -256,6 +264,10 @@ function ConfigSys:DeleteConfig(configName)
 end
 
 function ConfigSys:ListConfigs()
+    local folder = self.FolderName or "iOSMenuConfigs"
+    local ext = self.FileExtension or ".json"
+    local metaName = self.MetaFileName or "_meta"
+
     local seen = {}
     local out = {}
 
@@ -268,7 +280,7 @@ function ConfigSys:ListConfigs()
 
     local function collectName(rawName)
         local cfgName = sanitizeName(rawName)
-        if cfgName ~= "" and cfgName ~= "_manifest" and cfgName ~= self.MetaFileName and not seen[cfgName] then
+        if cfgName ~= "" and cfgName ~= "_manifest" and cfgName ~= metaName and not seen[cfgName] then
             seen[cfgName] = true
             table.insert(out, cfgName)
         end
@@ -278,8 +290,8 @@ function ConfigSys:ListConfigs()
         if typeof(files) ~= "table" then return end
         for _, filePath in ipairs(files) do
             local fileName = tostring(filePath):match("[^/\\]+$") or tostring(filePath)
-            if fileName:sub(-#self.FileExtension) == self.FileExtension then
-                local cfgName = fileName:sub(1, #fileName - #self.FileExtension)
+            if fileName:sub(-#ext) == ext then
+                local cfgName = fileName:sub(1, #fileName - #ext)
                 collectName(cfgName)
             end
         end
@@ -287,10 +299,10 @@ function ConfigSys:ListConfigs()
 
     if typeof(listfiles) == "function" then
         local paths = {
-            self.FolderName,
-            self.FolderName .. "/",
-            "./" .. self.FolderName,
-            "./" .. self.FolderName .. "/"
+            folder,
+            folder .. "/",
+            "./" .. folder,
+            "./" .. folder .. "/"
         }
         for _, path in ipairs(paths) do
             pcall(function() collectFromFileList(listfiles(path)) end)
@@ -299,8 +311,8 @@ function ConfigSys:ListConfigs()
         pcall(function()
             local rootFiles = listfiles("")
             if typeof(rootFiles) == "table" then
-                local needleA = self.FolderName .. "/"
-                local needleB = self.FolderName .. "\\"
+                local needleA = folder .. "/"
+                local needleB = folder .. "\\"
                 local filtered = {}
                 for _, filePath in ipairs(rootFiles) do
                     local normalized = tostring(filePath)
@@ -330,15 +342,18 @@ function ConfigSys:GetConfigNames()
 end
 
 function ConfigSys:SetAutoLoad(configName)
-    return self:SetMeta(self.AutoLoadKey, sanitizeName(configName))
+    local key = self.AutoLoadKey or "autoload"
+    return self:SetMeta(key, sanitizeName(configName))
 end
 
 function ConfigSys:GetAutoLoadName(defaultValue)
-    return self:GetMeta(self.AutoLoadKey, defaultValue)
+    local key = self.AutoLoadKey or "autoload"
+    return self:GetMeta(key, defaultValue)
 end
 
 function ConfigSys:ClearAutoLoad()
-    return self:SetMeta(self.AutoLoadKey, nil)
+    local key = self.AutoLoadKey or "autoload"
+    return self:SetMeta(key, nil)
 end
 
 function ConfigSys:LoadAutoLoad()
@@ -348,11 +363,13 @@ function ConfigSys:LoadAutoLoad()
 end
 
 function ConfigSys:SetLastUsedConfig(configName)
-    return self:SetMeta(self.LastUsedKey, sanitizeName(configName))
+    local key = self.LastUsedKey or "last_used"
+    return self:SetMeta(key, sanitizeName(configName))
 end
 
 function ConfigSys:GetLastUsedConfig(defaultValue)
-    return self:GetMeta(self.LastUsedKey, defaultValue)
+    local key = self.LastUsedKey or "last_used"
+    return self:GetMeta(key, defaultValue)
 end
 
 return ConfigSys
