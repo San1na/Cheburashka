@@ -1,4 +1,4 @@
--- ver 1.01 TEST
+-- ver 1.02 TEST
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -992,7 +992,7 @@ function Library:AddTab(tabSettings)
             popup.ScrollBarThickness = 0
             popup.Parent = menuRef.Root
             makeCorner(popup, 6)
-            local popupStroke = makeStroke(popup, style.BorderColor, 1)
+            local popupStroke = makeStroke(popup, style.BorderColor, 0)
             popupStroke.ZIndex = 201
 
             local maxPopupHeight = data.MaxPopupHeight or 220
@@ -1259,7 +1259,7 @@ function Library:AddTab(tabSettings)
             popup.ScrollBarThickness = 0
             popup.Parent = menuRef.Root
             makeCorner(popup, 6)
-            local popupStroke = makeStroke(popup, style.BorderColor, 1)
+            local popupStroke = makeStroke(popup, style.BorderColor, 0)
             popupStroke.ZIndex = 201
 
             local maxPopupHeight = data.MaxPopupHeight or 220
@@ -1583,7 +1583,7 @@ function Library:AddTab(tabSettings)
             popup.ZIndex = 20
             popup.Parent = menuRef.Root
             makeCorner(popup, 6)
-            local popupStroke = makeStroke(popup, style.BorderColor, 1)
+            local popupStroke = makeStroke(popup, style.BorderColor, 0)
 
             local popupScale = Instance.new("UIScale")
             popupScale.Scale = 0.96
