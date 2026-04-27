@@ -1,4 +1,4 @@
--- ver 1.0 TEST
+-- ver 1.01 TEST
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -981,7 +981,7 @@ function Library:AddTab(tabSettings)
             local popup = Instance.new("ScrollingFrame")
             popup.Visible = false
             popup.ClipsDescendants = true
-            popup.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            popup.BackgroundColor3 = style.SurfaceColor
             popup.BackgroundTransparency = 1
             popup.ZIndex = 200
             popup.BorderSizePixel = 0
@@ -1134,7 +1134,7 @@ function Library:AddTab(tabSettings)
                         optionButton.AutoButtonColor = false
                         optionButton.Text = ""
                         optionButton.BackgroundTransparency = 1
-                        optionButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                        optionButton.BackgroundColor3 = style.ItemColor
                         optionButton.Size = UDim2.new(1, 0, 0, 26)
                         optionButton.ZIndex = 202
                         optionButton.Parent = popup
