@@ -1,4 +1,4 @@
--- ver 1.055 Test
+-- ver 1.06 Test
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -38,7 +38,7 @@ Library.Defaults = {
     MaxWidth = 1200,
     MaxHeight = 900,
     BlurEnabled = true,
-    BlurMode = "Local",
+    BlurMode = "Global",
     BlurSize = 18,
     BlurTweenSpeed = 0.2,
     BlurBackdropTransparency = 0.75,
