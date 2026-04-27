@@ -3,6 +3,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
 
 local Library = {}
 Library.__index = Library
@@ -36,6 +37,10 @@ Library.Defaults = {
     MinHeight = 300,
     MaxWidth = 1200,
     MaxHeight = 900,
+    BlurEnabled = true,
+    BlurSize = 18,
+    BlurTweenSpeed = 0.2,
+    RunUnloadOnClose = true,
 }
 
 local function deepCopy(tbl)
@@ -283,6 +288,10 @@ function Library.new(config)
         AutoSave = false,
         AutoSaveName = "autoload",
     }
+    self._destroyed = false
+    self._unloadCallbacks = {}
+    self._modules = {}
+    self._blurEffect = nil
 
     local root = getParent(settings.Parent)
 
@@ -343,7 +352,6 @@ function Library.new(config)
             local delta = input.Position - resizeStartPos
             local newWidth = math.round(math.clamp(resizeStartSize.X + delta.X, settings.MinWidth, settings.MaxWidth))
             local newHeight = math.round(math.clamp(resizeStartSize.Y + delta.Y, settings.MinHeight, settings.MaxHeight))
-            
             local actualDeltaX = newWidth - resizeStartSize.X
             local actualDeltaY = newHeight - resizeStartSize.Y
 
@@ -418,7 +426,11 @@ function Library.new(config)
     self._preMinSize = UDim2.fromOffset(settings.Width, settings.Height)
 
     closeBtn.MouseButton1Click:Connect(function()
-        self:Destroy()
+        if self.Settings.RunUnloadOnClose then
+            self:Unload()
+        else
+            self:Destroy()
+        end
     end)
 
     minBtn.MouseButton1Click:Connect(function()
@@ -514,6 +526,9 @@ function Library.new(config)
         end
     end))
 
+    self:_setupBlur()
+    self:_setBlurVisible(true, true)
+
     holder.Size = UDim2.fromOffset(settings.Width * 0.95, settings.Height * 0.95)
     holder.BackgroundTransparency = 1
     tween(holder, settings.AnimationSpeed, { Size = UDim2.fromOffset(settings.Width, settings.Height), BackgroundTransparency = settings.WindowTransparency }, Enum.EasingStyle.Back)
@@ -525,12 +540,100 @@ function Library.new(config)
     return self
 end
 
+function Library:_setupBlur()
+    if not self.Settings.BlurEnabled then
+        return
+    end
+
+    local blurName = "LibraryBlur_" .. tostring(math.floor(os.clock() * 1000))
+    local blur = Instance.new("BlurEffect")
+    blur.Name = blurName
+    blur.Size = 0
+    blur.Enabled = false
+    blur.Parent = Lighting
+    self._blurEffect = blur
+end
+
+function Library:_setBlurVisible(isVisible, instant)
+    if not self._blurEffect then
+        return
+    end
+
+    local target = isVisible and (self.Settings.BlurSize or 18) or 0
+    local speed = instant and 0 or (self.Settings.BlurTweenSpeed or 0.2)
+
+    self._blurEffect.Enabled = true
+    if speed <= 0 then
+        self._blurEffect.Size = target
+    else
+        local tw = TweenService:Create(
+            self._blurEffect,
+            TweenInfo.new(speed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { Size = target }
+        )
+        tw:Play()
+    end
+
+    if not isVisible then
+        task.delay(speed + 0.01, function()
+            if self._blurEffect and self._blurEffect.Parent then
+                self._blurEffect.Enabled = false
+            end
+        end)
+    end
+end
+
+function Library:RegisterUnloadCallback(callback)
+    if typeof(callback) ~= "function" then
+        return false
+    end
+
+    table.insert(self._unloadCallbacks, callback)
+    return true
+end
+
+function Library:RegisterModule(moduleRef)
+    if typeof(moduleRef) ~= "table" then
+        return false
+    end
+
+    table.insert(self._modules, moduleRef)
+    return true
+end
+
+function Library:_runUnload()
+    for _, moduleRef in ipairs(self._modules) do
+        pcall(function()
+            if typeof(moduleRef.Unload) == "function" then
+                moduleRef:Unload()
+            elseif typeof(moduleRef.Disable) == "function" then
+                moduleRef:Disable()
+            elseif typeof(moduleRef.Stop) == "function" then
+                moduleRef:Stop()
+            end
+        end)
+    end
+
+    for _, cb in ipairs(self._unloadCallbacks) do
+        pcall(cb)
+    end
+end
+
+function Library:Unload()
+    if self._destroyed then
+        return
+    end
+    self:_runUnload()
+    self:Destroy()
+end
+
 function Library:SetVisible(state)
     self._visibilityToken = self._visibilityToken + 1
     local token = self._visibilityToken
     self.Visible = state
 
     if state then
+        self:_setBlurVisible(true)
         self.Holder.Visible = true
         self.Holder.Size = UDim2.fromOffset(self.Settings.Width * 0.95, self.Settings.Height * 0.95)
         self.HolderScale.Scale = 0.95
@@ -540,6 +643,7 @@ function Library:SetVisible(state)
         tween(self.HolderScale, self.Settings.AnimationSpeed, { Scale = 1 }, Enum.EasingStyle.Back)
         tweenDescendants(self.Holder, self.Settings.AnimationSpeed, "show")
     else
+        self:_setBlurVisible(false)
         local hideDur = self.Settings.AnimationSpeed * 0.8
         for _, p in ipairs(self._colorPopups) do
             if p and p.CloseInstant then p:CloseInstant() end
@@ -992,14 +1096,14 @@ function Library:AddTab(tabSettings)
                 dragging = true
                 tween(knob, 0.15, {Size = UDim2.fromOffset(16, 16)}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
             end)
-            
+
             table.insert(menuRef.Connections, UserInputService.InputChanged:Connect(function(i)
                 if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
                     local alpha = math.clamp((i.Position.X - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1)
                     setValue(min + (max - min) * alpha, false)
                 end
             end))
-            
+
             table.insert(menuRef.Connections, UserInputService.InputEnded:Connect(function(i)
                 if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
                     if dragging then
@@ -2014,7 +2118,7 @@ function Library:AddTab(tabSettings)
             local controlRef
 
             box.Focused:Connect(function() tween(boxBg, 0.16, { BackgroundColor3 = style.BorderColor }) end)
-            
+
             local function setText(nextValue, silent)
                 value = tostring(nextValue or "")
                 box.Text = value
@@ -2126,6 +2230,19 @@ function Library:AddTab(tabSettings)
 end
 
 function Library:Destroy()
+    if self._destroyed then
+        return
+    end
+    self._destroyed = true
+
+    self:_setBlurVisible(false, true)
+    if self._blurEffect and self._blurEffect.Parent then
+        self._blurEffect.Size = 0
+        self._blurEffect.Enabled = false
+        self._blurEffect:Destroy()
+    end
+    self._blurEffect = nil
+
     for _, connection in ipairs(self.Connections) do
         if connection and connection.Connected then connection:Disconnect() end
     end
